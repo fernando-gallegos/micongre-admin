@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <rect id="tl" x="93" y="94" width="146" height="146" rx="40"/>
+    <rect id="tr" x="275" y="94" width="146" height="146" rx="40"/>
+    <rect id="bl" x="93" y="276" width="146" height="146" rx="40"/>
+    <rect id="br" x="275" y="276" width="146" height="146" rx="40"/>
+    <!-- 5to cuadro celeste, centrado sobre los 4 blancos -->
+    <rect id="mid" x="159" y="163" width="196" height="191" rx="50"/>
+    <clipPath id="dark"><use href="#tl"/><use href="#br"/></clipPath>
+    <clipPath id="light"><use href="#tr"/><use href="#bl"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="#03233F"/>
+  <g fill="#FFFFFF">
+    <use href="#tl"/><use href="#tr"/><use href="#bl"/><use href="#br"/>
+  </g>
+  <!-- Celeste oscuro: pedacitos de arriba-izquierda y abajo-derecha -->
+  <g clip-path="url(#dark)"><use href="#mid" fill="#06A5CC"/></g>
+  <!-- Celeste claro: abajo-izquierda y arriba-derecha, unidos por un puente -->
+  <g clip-path="url(#light)"><use href="#mid" fill="#10DFF5"/></g>
+  <path fill="#10DFF5" d="M190 280C232 280 240 250 256 232C272 214 270 212 292 212L324 240C282 240 274 270 258 288C242 306 244 308 222 308Z"/>
+</svg>

@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	--bg: #f7f5f0;
+	--surface: #ffffff;
+	--surface-alt: #f1efe8;
+	--line: #e3ded2;
+	--ink: #1c1b17;
+	--ink-soft: #6c6658;
+	--accent: #3f6b52;
+	--accent-strong: #2f5140;
+	--accent-soft: #e7f0ea;
+	--accent-ink: #ffffff;
+	--warn: #c1571f;
+	--warn-soft: #fbe8dd;
+	/* Colores fijos de las 3 secciones de la Guía de actividades (mwb) —
+	   independientes del acento elegido, igual que --warn. */
+	--mwb-treasures: #1d5fa8;
+	--mwb-treasures-soft: #e4eefa;
+	--mwb-ministry: #8a6a12;
+	--mwb-ministry-soft: #f6efd6;
+	--mwb-living: #a1272f;
+	--mwb-living-soft: #fbe7e8;
+	/* Colores fijos de las 2 secciones de la reunión de fin de semana —
+	   independientes del acento elegido, igual que --mwb-*. */
+	--weekend-watchtower: #4338ca;
+	--weekend-watchtower-soft: #e6e4fb;
+	--weekend-talk: #0f766e;
+	--weekend-talk-soft: #dcf5f1;
+}
+
+body {
+	background: var(--bg);
+	color: var(--ink);
+	font-family: var(--font-sans), system-ui, sans-serif;
+	-webkit-tap-highlight-color: transparent;
+}
+
+[data-theme="dark"] {
+	--warn: #e8935f;
+	--warn-soft: #3a2417;
+	--mwb-treasures: #7bb0e0;
+	--mwb-treasures-soft: #1c2c3d;
+	--mwb-ministry: #d1a94a;
+	--mwb-ministry-soft: #362a14;
+	--mwb-living: #d97883;
+	--mwb-living-soft: #3a1c20;
+	--weekend-watchtower: #a5b4fc;
+	--weekend-watchtower-soft: #2a2750;
+	--weekend-talk: #5eead4;
+	--weekend-talk-soft: #163330;
+}
+
+/* Salvia — el acento por defecto */
+[data-accent="salvia"] {
+	--bg: #f7f5f0;
+	--surface: #ffffff;
+	--surface-alt: #f1efe8;
+	--line: #e3ded2;
+	--ink: #1c1b17;
+	--ink-soft: #6c6658;
+	--accent: #3f6b52;
+	--accent-strong: #2f5140;
+	--accent-soft: #e7f0ea;
+	--accent-ink: #ffffff;
+}
+[data-accent="salvia"][data-theme="dark"] {
+	--bg: #15171a;
+	--surface: #1c1f23;
+	--surface-alt: #22262b;
+	--line: #2b2f35;
+	--ink: #eeeae1;
+	--ink-soft: #9a9488;
+	--accent: #74b191;
+	--accent-strong: #5c987a;
+	--accent-soft: #20332a;
+	--accent-ink: #0c1410;
+}
+
+/* Añil */
+[data-accent="anil"] {
+	--bg: #f5f6fa;
+	--surface: #ffffff;
+	--surface-alt: #ecedf7;
+	--line: #dfe1ea;
+	--ink: #1a1d29;
+	--ink-soft: #63687a;
+	--accent: #3d5aa3;
+	--accent-strong: #2c4480;
+	--accent-soft: #e4e8f5;
+	--accent-ink: #ffffff;
+}
+[data-accent="anil"][data-theme="dark"] {
+	--bg: #14161f;
+	--surface: #1b1e29;
+	--surface-alt: #20242f;
+	--line: #262a38;
+	--ink: #e8e9f0;
+	--ink-soft: #9498aa;
+	--accent: #7c93d6;
+	--accent-strong: #6480c9;
+	--accent-soft: #232a42;
+	--accent-ink: #10131f;
+}
+
+/* Terracota */
+[data-accent="terracota"] {
+	--bg: #faf6f1;
+	--surface: #ffffff;
+	--surface-alt: #f3ebe2;
+	--line: #e8dccf;
+	--ink: #241a14;
+	--ink-soft: #7a6a5c;
+	--accent: #b5563c;
+	--accent-strong: #954530;
+	--accent-soft: #f7e6de;
+	--accent-ink: #ffffff;
+}
+[data-accent="terracota"][data-theme="dark"] {
+	--bg: #1a1512;
+	--surface: #221a16;
+	--surface-alt: #271e19;
+	--line: #2e2620;
+	--ink: #f0e6de;
+	--ink-soft: #a89486;
+	--accent: #e2896c;
+	--accent-strong: #d1714f;
+	--accent-soft: #3a241b;
+	--accent-ink: #1f1109;
+}
+
+/* Petróleo */
+[data-accent="petroleo"] {
+	--bg: #f4f8f8;
+	--surface: #ffffff;
+	--surface-alt: #ebf3f2;
+	--line: #d9e6e5;
+	--ink: #142322;
+	--ink-soft: #5b7472;
+	--accent: #1f6f78;
+	--accent-strong: #175a61;
+	--accent-soft: #dcedec;
+	--accent-ink: #ffffff;
+}
+[data-accent="petroleo"][data-theme="dark"] {
+	--bg: #101a1a;
+	--surface: #172322;
+	--surface-alt: #1c2827;
+	--line: #223231;
+	--ink: #e2ece9;
+	--ink-soft: #8fa6a3;
+	--accent: #5fb0b6;
+	--accent-strong: #479da3;
+	--accent-soft: #1c3232;
+	--accent-ink: #0a1615;
+}
+
+/* Carbón y oro */
+[data-accent="carbon"] {
+	--bg: #f7f5f1;
+	--surface: #ffffff;
+	--surface-alt: #efe9da;
+	--line: #e6e0d2;
+	--ink: #201d16;
+	--ink-soft: #756d5c;
+	--accent: #9c7a24;
+	--accent-strong: #7f631c;
+	--accent-soft: #f3ecd6;
+	--accent-ink: #ffffff;
+}
+[data-accent="carbon"][data-theme="dark"] {
+	--bg: #17150f;
+	--surface: #1f1c15;
+	--surface-alt: #242018;
+	--line: #2b271c;
+	--ink: #ece7db;
+	--ink-soft: #a89d87;
+	--accent: #d4ab52;
+	--accent-strong: #c19638;
+	--accent-soft: #362d16;
+	--accent-ink: #1a1408;
+}

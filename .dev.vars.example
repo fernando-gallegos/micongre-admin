@@ -1,0 +1,11 @@
+JWT_SECRET=cambia-esto-por-un-secreto-largo-y-aleatorio
+# Generar con: node scripts/generate-vapid-keys.mjs
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY_JWK=
+VAPID_SUBJECT=mailto:tu-correo@ejemplo.com
+
+# Push en tiempo real a Android (opcional): contenido del JSON de la cuenta de servicio de Firebase. Ver docs/firebase-push.md
+FCM_SERVICE_ACCOUNT=
+# Alternativa sin Firebase propio: relay de Mi Congre (te los da quien administra micongre-router)
+PUSH_RELAY_URL=
+PUSH_RELAY_KEY=

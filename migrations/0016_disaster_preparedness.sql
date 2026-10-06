@@ -1,0 +1,20 @@
+CREATE TABLE disaster_assessment_records (
+	id TEXT PRIMARY KEY,
+	group_id TEXT NOT NULL REFERENCES field_service_groups(id),
+	report_date TEXT NOT NULL,
+	total_publishers_contacted INTEGER NOT NULL DEFAULT 0,
+	injured_count INTEGER NOT NULL DEFAULT 0,
+	missing_count INTEGER NOT NULL DEFAULT 0,
+	displaced_count INTEGER NOT NULL DEFAULT 0,
+	deceased_count INTEGER NOT NULL DEFAULT 0,
+	houses_damaged_count INTEGER NOT NULL DEFAULT 0,
+	houses_destroyed_count INTEGER NOT NULL DEFAULT 0,
+	utilities_disrupted INTEGER NOT NULL DEFAULT 0,
+	urgent_needs_food_water INTEGER NOT NULL DEFAULT 0,
+	urgent_needs_shelter_clothing INTEGER NOT NULL DEFAULT 0,
+	notes TEXT,
+	reported_to_cobe INTEGER NOT NULL DEFAULT 0,
+	reported_to_circuit_overseer INTEGER NOT NULL DEFAULT 0,
+	created_by_user_id TEXT NOT NULL REFERENCES users(id),
+	created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);

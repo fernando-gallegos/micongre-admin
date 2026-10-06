@@ -1,0 +1,10 @@
+ALTER TABLE midweek_meetings ADD COLUMN opening_prayer_user_id TEXT REFERENCES users(id);
+ALTER TABLE midweek_meetings ADD COLUMN middle_song_number INTEGER;
+ALTER TABLE congregations ADD COLUMN skip_opening_prayer INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE congregations ADD COLUMN link_congregation_url TEXT;
+ALTER TABLE congregations ADD COLUMN link_congregation_color TEXT;
+ALTER TABLE congregations ADD COLUMN link_appointed_url TEXT;
+ALTER TABLE congregations ADD COLUMN link_appointed_color TEXT;
+ALTER TABLE congregations ADD COLUMN link_elders_url TEXT;
+ALTER TABLE congregations ADD COLUMN link_elders_color TEXT;
+ALTER TABLE congregations ADD COLUMN zoom_url TEXT;

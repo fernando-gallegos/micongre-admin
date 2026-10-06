@@ -1,0 +1,24 @@
+{
+	"compatibility_date": "2025-10-08",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "custom-worker.js",
+	"name": "micongre-web",
+	"upload_source_maps": true,
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".open-next/assets"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_name": "micongre-db"
+		}
+	],
+	"triggers": {
+		"crons": ["0 * * * *"]
+	},
+	"observability": {
+		"enabled": true
+	}
+}
