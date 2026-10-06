@@ -30,8 +30,8 @@ estos pasos.
 Haz clic en **Fork** en la parte superior de este repositorio y luego clona tu fork:
 
 ```bash
-git clone https://github.com/TU-USUARIO/micongre-web.git
-cd micongre-web
+git clone https://github.com/TU-USUARIO/micongre-admin.git
+cd micongre-admin
 npm install
 ```
 

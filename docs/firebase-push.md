@@ -48,7 +48,7 @@ Hay **dos piezas** de Firebase y van en lugares distintos:
 
 | Pieza | Archivo | ¿Es secreto? | Dónde va |
 |---|---|---|---|
-| Configuración de la **app** Android | `google-services.json` | No es secreta (identifica la app), pero no se sube al repo | `micongre-android/app/google-services.json` |
+| Configuración de la **app** Android | `google-services.json` | No es secreta (identifica la app), pero no se sube al repo | `micongre-app/app/google-services.json` |
 | **Cuenta de servicio** del servidor | JSON de clave privada | **Sí, es secreta** | Secreto `FCM_SERVICE_ACCOUNT` del Worker (o secreto de GitHub) |
 
 ---
@@ -69,7 +69,7 @@ Hay **dos piezas** de Firebase y van en lugares distintos:
 3. Apodo de la app: `Mi Congre`. El certificado SHA-1 **no** es necesario para notificaciones.
 4. Pulsa **Registrar app**.
 5. Pulsa **Descargar google-services.json**.
-6. Copia ese archivo a: `C:\repos\micongre-android\app\google-services.json`
+6. Copia ese archivo a: `micongre-app/app/google-services.json`
    (junto a `google-services.json.example`). El proyecto Android ya está preparado: en cuanto existe ese archivo, Gradle
    aplica el plugin de Firebase automáticamente. Omite los pasos «agregar el SDK» que muestra la consola: ya está hecho.
 7. Pulsa **Siguiente** hasta terminar el asistente.
