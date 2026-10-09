@@ -5,6 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { IconButton, List, SectionLabel } from "@/components/ui/Layout";
 import { formatLongDate, formatShortDate } from "@/lib/dateFormat";
+import { addDays, mondayOf, toISODate } from "@/lib/mwb/dates";
+import { getCurrentServiceYear } from "@/lib/serviceYear";
 import { AttendanceForm } from "./AttendanceForm";
 
 interface MeetingRow {
@@ -25,7 +27,14 @@ export function AttendanceList() {
 
 	useEffect(() => {
 		async function load() {
-			const [midweekRes, weekendRes] = await Promise.all([fetch("/api/midweek"), fetch("/api/weekend")]);
+			// Todo el año de servicio en curso (septiembre a agosto): las reuniones que existan y la asistencia ya registrada, en una sola
+			// consulta de asistencia (antes se pedía una por reunión y solo se veía el mes actual).
+			const from = `${getCurrentServiceYear()}-09-01`;
+			const [midweekRes, weekendRes, attendanceRes] = await Promise.all([
+				fetch(`/api/midweek?from=${from}`),
+				fetch(`/api/weekend?from=${from}`),
+				fetch(`/api/attendance?from=${from}`),
+			]);
 			const merged: MeetingRow[] = [];
 			if (midweekRes.ok) {
 				const body = (await midweekRes.json()) as { items: { id: string; meetingDate: string }[] };
@@ -35,18 +44,24 @@ export function AttendanceList() {
 				const body = (await weekendRes.json()) as { items: { id: string; meetingDate: string }[] };
 				merged.push(...body.items.map((m) => ({ ...m, meetingType: "weekend" as const, inPersonCount: null, zoomCount: null })));
 			}
+			// Solo hasta la semana actual (la reunión de esta semana se puede registrar aunque falte unas horas); las futuras todavía no
+			// han pasado. Domingo de esta semana con la fecha local (no UTC).
+			const now = new Date();
+			const localToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+			const weekEnd = toISODate(addDays(mondayOf(localToday), 6));
+			const held = merged.filter((m) => m.meetingDate <= weekEnd);
+			merged.length = 0;
+			merged.push(...held);
 			merged.sort((a, b) => a.meetingDate.localeCompare(b.meetingDate));
 
-			const withAttendance = await Promise.all(
-				merged.map(async (m) => {
-					const res = await fetch(`/api/attendance?meetingType=${m.meetingType}&meetingId=${m.id}`);
-					if (!res.ok) return m;
-					const body = (await res.json()) as { item: { inPersonCount: number; zoomCount: number } | null };
-					return body.item
-						? { ...m, inPersonCount: body.item.inPersonCount, zoomCount: body.item.zoomCount }
-						: m;
-				}),
-			);
+			const counts = new Map<string, { inPersonCount: number; zoomCount: number }>();
+			if (attendanceRes.ok) {
+				const body = (await attendanceRes.json()) as {
+					items: { meetingType: string; meetingId: string; inPersonCount: number; zoomCount: number }[];
+				};
+				for (const a of body.items) counts.set(`${a.meetingType}-${a.meetingId}`, { inPersonCount: a.inPersonCount, zoomCount: a.zoomCount });
+			}
+			const withAttendance = merged.map((m) => ({ ...m, ...(counts.get(keyOf(m)) ?? {}) }));
 
 			setRows(withAttendance);
 			// La reunión a registrar: la más reciente ya realizada que aún no tiene cifras
@@ -74,7 +89,7 @@ export function AttendanceList() {
 
 			{!loading && rows.length === 0 && (
 				<Card>
-					<p className="text-sm text-ink-soft">No hay reuniones programadas este mes.</p>
+					<p className="text-sm text-ink-soft">Todavía no hay reuniones realizadas en este año de servicio.</p>
 				</Card>
 			)}
 
@@ -99,7 +114,7 @@ export function AttendanceList() {
 
 			{rows.length > 0 && (
 				<section>
-					<SectionLabel>Reuniones</SectionLabel>
+					<SectionLabel>{`Año de servicio ${getCurrentServiceYear()}–${getCurrentServiceYear() + 1}`}</SectionLabel>
 					<List>
 						{listed.map((m) => {
 							const active = keyOf(m) === selectedKey;

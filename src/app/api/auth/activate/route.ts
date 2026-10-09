@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { previewActivation, redeemActivation } from "@/lib/auth/activation";
+import { rememberPreviousAccount } from "@/lib/auth/accounts";
 import { setSessionCookies } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/env";
 
@@ -51,5 +52,7 @@ export async function POST(request: Request) {
 
 	const response = NextResponse.json(result);
 	setSessionCookies(response, result.accessToken, result.refreshToken, "web");
+	// Web multicuentas: si el navegador ya tenía otra cuenta activa, queda guardada en lugar de perderse.
+	await rememberPreviousAccount(db, response, result.user.id);
 	return response;
 }

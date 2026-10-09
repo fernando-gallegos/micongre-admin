@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { meetingAttendance } from "@/db/schema";
@@ -30,6 +30,17 @@ export async function GET(request: Request) {
 			return NextResponse.json({ item: row ?? null });
 		}
 
+		// ?from=AAAA-MM-DD → toda la asistencia registrada desde esa fecha (p. ej. el año de servicio completo); sin él, las 50 más recientes.
+		const from = searchParams.get("from");
+		if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+			const rows = await db
+				.select()
+				.from(meetingAttendance)
+				.where(gte(meetingAttendance.meetingDate, from))
+				.orderBy(desc(meetingAttendance.meetingDate))
+				.limit(600);
+			return NextResponse.json({ items: rows });
+		}
 		const rows = await db.select().from(meetingAttendance).orderBy(desc(meetingAttendance.meetingDate)).limit(50);
 		return NextResponse.json({ items: rows });
 	} catch (error) {

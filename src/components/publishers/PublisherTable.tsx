@@ -1,8 +1,9 @@
 "use client";
 
+import { SelectBox } from "@/components/ui/Input";
 import Link from "next/link";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { ArrowDown, ArrowUp, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Search, Users } from "lucide-react";
 import { Badge } from "@/components/ui/Card";
 import { ExportButton } from "@/components/export/ExportButton";
 import { Avatar, Chip, ChipGroup, Fab, IconButton, List, PageHeader } from "@/components/ui/Layout";
@@ -270,7 +271,21 @@ export function PublisherTable({
 
 	return (
 		<div className="flex flex-col gap-5">
-			<PageHeader title="Personas" subtitle={`${publisherRows.length} personas en la congregación`} />
+			<PageHeader
+				title="Personas"
+				subtitle={`${publisherRows.length} personas en la congregación`}
+				actions={
+					canManageAppointments || canAdministerAccounts ? (
+						<Link
+							href="/publishers/bulk"
+							className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-ink transition-colors hover:bg-surface-alt"
+						>
+							<Users size={18} />
+							Asignación masiva
+						</Link>
+					) : undefined
+				}
+			/>
 
 			<div className="flex h-12 items-center gap-3 rounded-full bg-surface px-4 text-ink-soft focus-within:ring-1 focus-within:ring-accent">
 				<Search size={20} className="shrink-0" />
@@ -298,7 +313,7 @@ export function PublisherTable({
 			<div className="flex items-center gap-1">
 				<label className="flex items-center gap-2 text-[13px] text-ink-soft">
 					Ordenar por
-					<select
+					<SelectBox
 						value={sortKey}
 						onChange={(e) => {
 							setSortKey(e.target.value as SortKey);
@@ -311,7 +326,7 @@ export function PublisherTable({
 								{col.label}
 							</option>
 						))}
-					</select>
+					</SelectBox>
 				</label>
 				<IconButton
 					label={sortDir === "asc" ? "Orden ascendente (cambiar)" : "Orden descendente (cambiar)"}

@@ -1,5 +1,6 @@
 "use client";
 
+import { SelectBox } from "@/components/ui/Input";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export function ServiceYearSelect({ years, selected }: { years: number[]; selected: number }) {
@@ -16,7 +17,7 @@ export function ServiceYearSelect({ years, selected }: { years: number[]; select
 	return (
 		<label className="flex items-center gap-2 text-sm print:hidden">
 			<span className="font-medium text-ink-soft">Año de servicio</span>
-			<select
+			<SelectBox
 				value={selected}
 				onChange={(e) => changeYear(e.target.value)}
 				className="min-h-11 rounded-full border border-border bg-surface px-4 text-base font-medium text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm"
@@ -26,7 +27,7 @@ export function ServiceYearSelect({ years, selected }: { years: number[]; select
 						{year}–{year + 1}
 					</option>
 				))}
-			</select>
+			</SelectBox>
 		</label>
 	);
 }

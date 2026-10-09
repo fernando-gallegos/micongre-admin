@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Check, Eye, Send, Trash2 } from "lucide-react";
 import { Badge, Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
+import { Input, Select, SelectBox } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Chip, ChipGroup, IconButton, List } from "@/components/ui/Layout";
 import { MONTH_NAMES, monthLabel } from "@/lib/federation/months";
@@ -72,7 +72,7 @@ export function MonthYearFields({
 }) {
 	return (
 		<div className="flex items-center gap-2">
-			<select
+			<SelectBox
 				value={value.month}
 				onChange={(e) => onChange({ ...value, month: Number(e.target.value) })}
 				className="min-h-12 rounded-2xl border border-border bg-surface px-4 py-2 text-base text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm"
@@ -82,7 +82,7 @@ export function MonthYearFields({
 						{name.charAt(0).toUpperCase() + name.slice(1)}
 					</option>
 				))}
-			</select>
+			</SelectBox>
 			<Input
 				type="number"
 				value={value.year}

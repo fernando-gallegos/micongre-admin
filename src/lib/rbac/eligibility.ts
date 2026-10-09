@@ -7,6 +7,7 @@ import {
 	userPrivileges,
 	users,
 } from "@/db/schema";
+import { chunked } from "@/lib/cleaning/meetings";
 import { notHiddenAdmin } from "@/lib/rbac/visibility";
 
 export interface EligibleUser {
@@ -73,22 +74,30 @@ export async function getEligiblePublishers(
 	const eligibleIds = Array.from(new Set([...ruleBasedRows, ...directGrantRows].map((r) => r.id)));
 	if (eligibleIds.length === 0) return [];
 
-	const conditions = [inArray(users.id, eligibleIds), eq(users.congregationStatus, "active"), notHiddenAdmin];
-	if (privilege.requiresMale) conditions.push(eq(users.gender, "male"));
-	if (privilege.requiresBaptized) conditions.push(eq(users.theocraticStatus, "baptized_publisher"));
-	if (opts?.excludeUserIds?.length) conditions.push(notInArray(users.id, opts.excludeUserIds));
+	// D1 admite 100 variables por consulta: los ids se parten en tandas (con 99+ personas con el privilegio, una sola consulta
+	// fallaba y dejaba vacías todas las listas de elegibles).
+	const extra = [eq(users.congregationStatus, "active"), notHiddenAdmin];
+	if (privilege.requiresMale) extra.push(eq(users.gender, "male"));
+	if (privilege.requiresBaptized) extra.push(eq(users.theocraticStatus, "baptized_publisher"));
+	if (opts?.excludeUserIds?.length) extra.push(notInArray(users.id, opts.excludeUserIds));
 
-	const rows = await db
-		.select({
-			id: users.id,
-			fullName: users.fullName,
-			gender: users.gender,
-			householdId: users.householdId,
-			birthDate: users.birthDate,
-			guardianUserId: users.guardianUserId,
-		})
-		.from(users)
-		.where(and(...conditions));
+	const rows = (
+		await Promise.all(
+			chunked(eligibleIds, 60).map((part) =>
+				db
+					.select({
+						id: users.id,
+						fullName: users.fullName,
+						gender: users.gender,
+						householdId: users.householdId,
+						birthDate: users.birthDate,
+						guardianUserId: users.guardianUserId,
+					})
+					.from(users)
+					.where(and(inArray(users.id, part), ...extra)),
+			),
+		)
+	).flat();
 
 	const asOfDate = opts?.asOfDate ?? new Date().toISOString().slice(0, 10);
 	const filtered = privilege.requiresAdult

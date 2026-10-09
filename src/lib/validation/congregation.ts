@@ -15,6 +15,22 @@ const linkUrl = z
 	.refine((v) => v === "" || /^https?:\/\//i.test(v), "Debe iniciar con http:// o https://")
 	.optional()
 	.nullable();
+// Dirección pública: solo el origen (https://host); se normaliza al guardar y no puede ser la URL interna del Worker (workers.dev).
+const publicUrl = z
+	.string()
+	.trim()
+	.max(200)
+	.refine((v) => {
+		try {
+			const u = new URL(v);
+			return (u.protocol === "https:" || (u.protocol === "http:" && u.hostname === "localhost")) && !u.hostname.endsWith(".workers.dev");
+		} catch {
+			return false;
+		}
+	}, "Escribe una dirección https:// válida que no sea la de workers.dev")
+	.transform((v) => new URL(v).origin)
+	.optional()
+	.nullable();
 const linkColor = z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable();
 
 export const updateCongregationSchema = z.object({
@@ -27,12 +43,14 @@ export const updateCongregationSchema = z.object({
 	// cobeUserId/secretaryUserId/serviceOverseerUserId ya no se editan aquí —
 	// se derivan de los nombramientos (ver PUT /api/publishers/[id]/appointments).
 	meetingSchedules: meetingSchedulesSchema.optional().nullable(),
+	publicUrl,
 	preachingTime: z
 		.string()
 		.regex(/^([01]\d|2[0-3]):[0-5]\d$/)
 		.optional()
 		.nullable(),
 	skipOpeningPrayer: z.boolean().optional(),
+	animationsEnabled: z.boolean().optional(),
 	reminderHour: z.number().int().min(0).max(23).optional().nullable(),
 	linkCongregationUrl: linkUrl,
 	linkCongregationColor: linkColor,

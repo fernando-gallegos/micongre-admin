@@ -6,7 +6,7 @@ import { coVisitSchedules, users } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { issueActivationLink } from "@/lib/auth/activation";
 import { getSession } from "@/lib/auth/session";
-import { publicOrigin } from "@/lib/http/origin";
+import { publicBaseUrl } from "@/lib/http/publicUrl";
 import { RbacError } from "@/lib/rbac/errors";
 import { assertCanAdministerAccounts } from "@/lib/rbac/guards";
 
@@ -37,7 +37,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 		if (purpose === "circuit_overseer_visit" && session.role !== "admin") {
 			throw new RbacError("Solo un administrador puede generar el acceso de la visita del superintendente de circuito.");
 		}
-		const baseUrl = publicOrigin(request);
+		// Dirección pública (la guardada en Congregación o la del router); nunca la URL interna del Worker.
+		const baseUrl = await publicBaseUrl(db, request);
+		if (!baseUrl) return NextResponse.json({ error: "public_url_required" }, { status: 409 });
 
 		let expiresAtOverride: Date | undefined;
 		if (purpose === "circuit_overseer_visit") {

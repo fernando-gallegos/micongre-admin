@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Input";
 import { PageHeader, SectionLabel } from "@/components/ui/Layout";
 import { DeleteAllDataCard } from "./DeleteAllDataCard";
+import { AnimationsCard } from "@/components/animations/AnimationsCard";
+import { JobsCard } from "./JobsCard";
 import { centsToInputString, parseCentsInput } from "@/lib/money";
 import { PageLoader } from "@/components/ui/Spinner";
 import { AppQrCard } from "./AppQrCard";
@@ -17,6 +19,7 @@ interface CongregationResponse {
 	circuitId: string | null;
 	language: string | null;
 	kingdomHallAddress: string | null;
+	publicUrl: string | null;
 	isContactCongregation: boolean;
 	cobeName: string | null;
 	secretaryName: string | null;
@@ -27,6 +30,7 @@ interface CongregationResponse {
 	maxSinglePaymentLimitCents: number | null;
 	reportTheme: string | null;
 	skipOpeningPrayer: boolean;
+	animationsEnabled: boolean;
 	preachingTime: string | null;
 	reminderHour: number | null;
 	linkCongregationUrl: string | null;
@@ -44,6 +48,7 @@ interface FormState {
 	circuitId: string;
 	language: string;
 	kingdomHallAddress: string;
+	publicUrl: string;
 	isContactCongregation: boolean;
 	midweekDay: string;
 	midweekTime: string;
@@ -53,6 +58,7 @@ interface FormState {
 	maxBalanceApproved: string;
 	maxSinglePaymentLimit: string;
 	skipOpeningPrayer: boolean;
+	animationsEnabled: boolean;
 	preachingTime: string;
 	reminderHour: string;
 	linkCongregationUrl: string;
@@ -71,6 +77,7 @@ function toFormState(data: CongregationResponse): FormState {
 		circuitId: data.circuitId ?? "",
 		language: data.language ?? "",
 		kingdomHallAddress: data.kingdomHallAddress ?? "",
+		publicUrl: data.publicUrl ?? "",
 		isContactCongregation: data.isContactCongregation,
 		midweekDay: data.meetingSchedules?.midweek?.day ?? "",
 		midweekTime: data.meetingSchedules?.midweek?.time ?? "",
@@ -80,6 +87,7 @@ function toFormState(data: CongregationResponse): FormState {
 		maxBalanceApproved: centsToInputString(data.maxBalanceApprovedCents),
 		maxSinglePaymentLimit: centsToInputString(data.maxSinglePaymentLimitCents),
 		skipOpeningPrayer: data.skipOpeningPrayer,
+		animationsEnabled: data.animationsEnabled ?? false,
 		preachingTime: data.preachingTime ?? "",
 		reminderHour: data.reminderHour === null ? "" : String(data.reminderHour),
 		linkCongregationUrl: data.linkCongregationUrl ?? "",
@@ -134,6 +142,7 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 				circuitId: form.circuitId || null,
 				language: form.language || null,
 				kingdomHallAddress: form.kingdomHallAddress || null,
+				publicUrl: form.publicUrl.trim() || null,
 				isContactCongregation: form.isContactCongregation,
 				meetingSchedules: {
 					midweek: form.midweekDay && form.midweekTime ? { day: form.midweekDay, time: form.midweekTime } : null,
@@ -143,6 +152,7 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 				maxBalanceApprovedCents: parseCentsInput(form.maxBalanceApproved),
 				maxSinglePaymentLimitCents: parseCentsInput(form.maxSinglePaymentLimit),
 				skipOpeningPrayer: form.skipOpeningPrayer,
+				animationsEnabled: form.animationsEnabled,
 				preachingTime: form.preachingTime || null,
 				reminderHour: form.reminderHour === "" ? null : Number(form.reminderHour),
 				linkCongregationUrl: form.linkCongregationUrl.trim() || null,
@@ -183,6 +193,19 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 							value={form.kingdomHallAddress}
 							onChange={(e) => set("kingdomHallAddress", e.target.value)}
 						/>
+					</div>
+					<div className="mt-3">
+						<Input
+							label="Dirección pública de la app"
+							placeholder="https://mi-congregacion.micongre.app"
+							inputMode="url"
+							value={form.publicUrl}
+							onChange={(e) => set("publicUrl", e.target.value)}
+						/>
+						<p className="mt-1 px-1 text-xs text-ink-soft">
+							La dirección con la que se abre la app (la de tu subdominio). Con ella se arman los enlaces de acceso y el código QR; la
+							dirección interna del servidor nunca se muestra.
+						</p>
 					</div>
 					<label className="mt-4 flex min-h-11 items-center gap-3 text-sm text-ink">
 						<input
@@ -333,8 +356,30 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 			</section>
 
 			<section>
+				<SectionLabel>Animaciones de bienvenida (web)</SectionLabel>
+				<Card className="flex flex-col gap-4">
+					<label className="flex min-h-11 items-start gap-3 text-sm text-ink">
+						<input
+							type="checkbox"
+							className="mt-0.5 h-5 w-5 shrink-0 accent-accent"
+							checked={form.animationsEnabled}
+							onChange={(e) => set("animationsEnabled", e.target.checked)}
+						/>
+						<span>
+							Reproducir una animación al entrar a Mi Panel en la web
+							<span className="block text-xs text-ink-soft">
+								Una vez al entrar por primera vez cada 5 minutos, elegida al azar según el sexo de la persona; los precursores regulares suman las
+								carpetas de Precursores (hasta 5 animaciones por carpeta). Se guarda con el botón Guardar del formulario. Los archivos se suben aquí abajo, sin desplegar.
+							</span>
+						</span>
+					</label>
+					<AnimationsCard />
+				</Card>
+			</section>
+
+			<section>
 				<SectionLabel>Código QR de la app Android</SectionLabel>
-				<AppQrCard name={form.name} />
+				<AppQrCard name={form.name} publicUrl={form.publicUrl} />
 				<p className="mt-2 px-1 text-xs text-ink-soft">
 					Compártelo o pégalo en un chat: al abrir la app por primera vez se escanea para conectarse a este sitio.
 				</p>
@@ -351,6 +396,8 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 				</Button>
 				{saved && <span className="text-sm text-ink-soft">Guardado.</span>}
 			</div>
+
+			{isAdmin && <JobsCard />}
 
 			{isAdmin && <DeleteAllDataCard />}
 		</div>

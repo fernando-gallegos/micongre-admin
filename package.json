@@ -17,13 +17,16 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
 		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-		"db:create-admin": "node scripts/create-admin.mjs"
+		"db:create-admin": "node scripts/create-admin.mjs",
+		"demo:deploy": "node scripts/deploy-demo.mjs",
+		"demo:seed": "node scripts/deploy-demo.mjs --seed-only"
 	},
 	"dependencies": {
 		"docx": "^9.8.1",
 		"drizzle-orm": "0.38.4",
 		"fflate": "^0.8.3",
 		"html-to-image": "^1.11.13",
+		"lottie-web": "^5.13.0",
 		"lucide-react": "0.469.0",
 		"maplibre-gl": "^5.24.0",
 		"next": "15.5.26",

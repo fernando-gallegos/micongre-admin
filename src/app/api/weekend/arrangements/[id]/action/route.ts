@@ -8,6 +8,7 @@ import { FederationError, federationFetch } from "@/lib/federation/client";
 import { ForkUrlError } from "@/lib/federation/forkUrl";
 import { arrangementActionSchema } from "@/lib/federation/validation";
 import { publicOrigin } from "@/lib/http/origin";
+import { publicBaseUrl } from "@/lib/http/publicUrl";
 import { assertCanAccessWeekendModule } from "@/lib/rbac/guards";
 
 type Congregation = typeof speakerCongregations.$inferSelect;
@@ -37,7 +38,7 @@ async function sendRequest(db: Database, request: Request, row: Arrangement, for
 	const requestId = row.requestId ?? crypto.randomUUID();
 	const result = await federationFetch<{ status: Arrangement["status"] }>(forkUrl, "/api/federation/arrangements", {
 		method: "POST",
-		body: { status: "requested", requestId, senderUrl: publicOrigin(request), year, month },
+		body: { status: "requested", requestId, senderUrl: (await publicBaseUrl(db, request)) ?? publicOrigin(request), year, month },
 	});
 	const status = result.status === "accepted" ? "accepted" : "pending";
 	const [updated] = await db
@@ -154,7 +155,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 					: ({ status: "counter", proposedYear: action.year, proposedMonth: action.month } as const);
 		await federationFetch(forkUrl, "/api/federation/arrangements", {
 			method: "POST",
-			body: { requestId: row.requestId, senderUrl: publicOrigin(request), ...message, ...(comment ? { comment } : {}) },
+			body: { requestId: row.requestId, senderUrl: (await publicBaseUrl(db, request)) ?? publicOrigin(request), ...message, ...(comment ? { comment } : {}) },
 		});
 
 		const [arrangement] = await db

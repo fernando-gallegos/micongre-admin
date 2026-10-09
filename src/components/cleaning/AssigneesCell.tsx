@@ -1,5 +1,7 @@
 "use client";
 
+import { SelectBox } from "@/components/ui/Input";
+
 import { X } from "lucide-react";
 import { GroupBadge } from "@/components/serviceGroups/GroupBadge";
 import { Badge } from "@/components/ui/Card";
@@ -59,7 +61,7 @@ export function AssigneesCell({
 				</ul>
 			)}
 			{!nothingToAdd && (
-				<select
+				<SelectBox
 					aria-label="Agregar responsable"
 					value=""
 					disabled={disabled}
@@ -90,7 +92,7 @@ export function AssigneesCell({
 							))}
 						</optgroup>
 					)}
-				</select>
+				</SelectBox>
 			)}
 		</div>
 	);

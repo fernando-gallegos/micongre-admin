@@ -16,11 +16,13 @@ export function AccessPanel({
 	const [link, setLink] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [copied, setCopied] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	async function generateLink() {
 		setLoading(true);
 		setLink(null);
 		setCopied(false);
+		setError(null);
 		const response = await fetch(`/api/publishers/${publisherId}/access`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -30,6 +32,13 @@ export function AccessPanel({
 		if (response.ok) {
 			const body = (await response.json()) as { link: string };
 			setLink(body.link);
+		} else {
+			const body = (await response.json().catch(() => null)) as { error?: string } | null;
+			setError(
+				body?.error === "public_url_required"
+					? "Primero escribe la dirección pública de la app en Congregación (Datos generales) para poder generar enlaces."
+					: "No se pudo generar el enlace. Intenta de nuevo.",
+			);
 		}
 	}
 
@@ -69,6 +78,7 @@ export function AccessPanel({
 					</Button>
 				</div>
 
+				{error && <p className="text-sm text-red-600">{error}</p>}
 				{link && (
 					<div className="flex items-center gap-1 rounded-2xl bg-surface-alt py-1 pl-4 pr-1">
 						<code className="flex-1 truncate text-xs text-ink-soft">{link}</code>

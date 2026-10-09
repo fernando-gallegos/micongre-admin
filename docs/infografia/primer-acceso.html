@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primer acceso a Mi Congre</title>
+<style>
+	:root { --bg:#15171b; --card:#1e2127; --ink:#f1ede4; --soft:#9a9a96; --accent:#72b394; }
+	* { box-sizing:border-box; margin:0; }
+	body { background:#0e1013; font-family:"Segoe UI",system-ui,sans-serif; color:var(--ink); display:flex; justify-content:center; }
+	.poster { width:1200px; background:var(--bg); padding:64px 56px 56px; }
+	header { text-align:center; margin-bottom:48px; }
+	header img { width:96px; height:96px; border-radius:22px; }
+	h1 { font-family:Georgia,serif; font-size:56px; margin-top:20px; line-height:1.1; }
+	header p { color:var(--soft); font-size:26px; margin-top:12px; }
+	.grid { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+	.step { background:var(--card); border-radius:36px; padding:32px 24px 36px; text-align:center; position:relative; }
+	.step.wide { grid-column:1 / -1; }
+	.num { position:absolute; top:24px; left:24px; width:56px; height:56px; border-radius:50%; background:var(--accent); color:#0c1a13; font-weight:700; font-size:30px; display:grid; place-items:center; z-index:2; }
+	.phone { width:250px; height:520px; margin:0 auto 24px; border-radius:38px; border:8px solid #050607; background:#050607; overflow:hidden; box-shadow:0 14px 30px #0008; position:relative; }
+	.phone img { width:100%; height:100%; object-fit:cover; object-position:top; display:block; }
+	.phone::after { content:""; position:absolute; top:8px; left:50%; width:62px; height:7px; margin-left:-31px; border-radius:6px; background:#000; }
+	h2 { font-size:30px; line-height:1.2; }
+	.step p { color:var(--soft); font-size:21px; margin-top:8px; }
+	.android .screen { width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:14px; background:#15171b; }
+	.android .screen img { width:90px; height:90px; border-radius:20px; object-fit:contain; }
+	.android .screen span { color:var(--ink); font-family:Georgia,serif; font-size:22px; }
+	.badge { display:inline-block; margin-top:14px; background:#2a6f4e; color:#e8f5ee; border-radius:999px; padding:6px 18px; font-size:19px; }
+	.wide .row { display:flex; gap:40px; justify-content:center; align-items:center; }
+	.wide .row .txt { text-align:left; max-width:420px; }
+	footer { text-align:center; color:var(--soft); font-size:22px; margin-top:36px; }
+</style>
+</head>
+<body>
+<div class="poster">
+	<header>
+		<img src="img/icono.png" alt="">
+		<h1>Tu primer acceso a Mi Congre</h1>
+		<p>Cuatro pasos, menos de un minuto</p>
+	</header>
+
+	<div class="grid">
+		<div class="step"><div class="num">1</div>
+			<div class="phone"><img src="img/1-enlace.jpg" alt=""></div>
+			<h2>Recibe tu enlace</h2>
+			<p>Un administrador lo genera y te lo envía por WhatsApp o SMS</p>
+		</div>
+		<div class="step"><div class="num">2</div>
+			<div class="phone"><img src="img/2-credenciales.jpg" alt=""></div>
+			<h2>Ábrelo</h2>
+			<p>Verás tu usuario y contraseña ya listos</p>
+		</div>
+		<div class="step"><div class="num">3</div>
+			<div class="phone"><img src="img/3-guardar.jpg" alt=""></div>
+			<h2>Guárdalos</h2>
+			<p>Tu cuenta queda creada al instante</p>
+		</div>
+		<div class="step"><div class="num">4</div>
+			<div class="phone"><img src="img/4-panel.jpg" alt=""></div>
+			<h2>¡Ya estás dentro!</h2>
+			<p>Este es tu panel</p>
+		</div>
+		<div class="step wide android"><div class="num">5</div>
+			<div class="row">
+				<div class="phone" style="margin:0">
+					<img src="img/android-login.jpg" alt="" onerror="this.outerHTML='<div class=screen><img src=img/icono.png><span>Mi Congre</span></div>'">
+				</div>
+				<div class="txt">
+					<h2>Abre la app Android</h2>
+					<p>Descárgala de Google Play, toca el icono e inicia sesión con tu usuario y contraseña.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	<footer>¿Perdiste el enlace? Pide uno nuevo a un administrador.</footer>
+</div>
+</body>
+</html>

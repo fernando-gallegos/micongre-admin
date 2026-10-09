@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { refreshTokens, users } from "@/db/schema";
 import { ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_SECONDS } from "@/lib/auth/constants";
+import { rememberPreviousAccount } from "@/lib/auth/accounts";
 import { setSessionCookies } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/env";
 import { signAccessToken } from "@/lib/auth/jwt";
@@ -61,5 +62,7 @@ export async function POST(request: Request) {
 		user: { id: user.id, fullName: user.fullName, role: user.systemRole },
 	});
 	setSessionCookies(response, accessToken, refreshTokenPlain, clientType);
+	// Web multicuentas: la cuenta que estaba activa en este navegador queda guardada en lugar de perderse.
+	if (clientType === "web") await rememberPreviousAccount(db, response, user.id);
 	return response;
 }

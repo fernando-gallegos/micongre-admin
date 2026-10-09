@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth/session";
 import { FederationError, federationFetch } from "@/lib/federation/client";
 import { updateArrangementSchema } from "@/lib/federation/validation";
 import { publicOrigin } from "@/lib/http/origin";
+import { publicBaseUrl } from "@/lib/http/publicUrl";
 import { assertCanAccessWeekendModule } from "@/lib/rbac/guards";
 
 // Cambia el mes de un arreglo que nosotros solicitamos y que aún no se concretó;
@@ -72,7 +73,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 				try {
 					await federationFetch(congregation.forkUrl, "/api/federation/arrangements", {
 						method: "POST",
-						body: { status: "rejected", requestId: row.requestId, senderUrl: publicOrigin(request) },
+						body: { status: "rejected", requestId: row.requestId, senderUrl: (await publicBaseUrl(db, request)) ?? publicOrigin(request) },
 					});
 				} catch (error) {
 					if (!(error instanceof FederationError) || !force) {

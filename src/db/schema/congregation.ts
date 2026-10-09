@@ -21,12 +21,16 @@ export const congregations = sqliteTable("congregations", {
 	reportTheme: text("report_theme"),
 	// Hora por defecto de las salidas de predicación ("HH:MM"), para precargarla al agregar una.
 	preachingTime: text("preaching_time"),
+	// Dirección pública de la app (origen, p. ej. https://mi-congregacion.micongre.app): base de los enlaces de acceso y del QR.
+	publicUrl: text("public_url"),
 	// Recordatorio de asignaciones (lunes: la semana; viernes: el fin de semana): hora local de Nicaragua (0-23) o null = desactivado.
 	reminderHour: integer("reminder_hour"),
 	// Último día (local) en que se envió, para no repetirlo.
 	reminderLastRun: text("reminder_last_run"),
 	// Si es true, la reunión de entre semana no lleva oración inicial (ni en el formulario ni en los reportes).
 	skipOpeningPrayer: integer("skip_opening_prayer", { mode: "boolean" }).notNull().default(false),
+	// Animaciones de bienvenida en Mi Panel (web): apagadas por defecto; los archivos viven en welcome_animations.
+	animationsEnabled: integer("animations_enabled", { mode: "boolean" }).notNull().default(false),
 	// Enlaces de Mi Panel (grupos de mensajería con su color, y Zoom).
 	linkCongregationUrl: text("link_congregation_url"),
 	linkCongregationColor: text("link_congregation_color"),

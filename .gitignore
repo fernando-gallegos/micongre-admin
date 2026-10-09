@@ -205,4 +205,6 @@ dist
 /.claude/launch.json
 
 # Binarios de la ficha de Google Play
-play-store/*.aab
+
+# Sitio de demostración (cuenta del revisor)
+/.demo.json
