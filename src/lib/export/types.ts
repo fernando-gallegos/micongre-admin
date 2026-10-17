@@ -33,9 +33,26 @@ export type ReportBlock =
 			height: number;
 			caption?: string;
 			/** El dibujo va sobre el mapa base: el navegador lo dibuja (mismo centro y zoom de MapLibre, 512 px por mosaico) y lo pone de fondo del SVG. */
+			/** Versión en texto de la hoja, para Word (editable). Sin ella, Word recibe el dibujo como imagen. */
+			native?: NativeLine[];
+			/** En PNG, este dibujo es un archivo propio (varios se entregan en un .zip). */
+			standalone?: boolean;
 			basemap?: { center: [number, number]; zoom: number; rect?: { x: number; y: number; width: number; height: number } };
 	  }
 	| { type: "pageBreak" };
+
+/** Contenido de una hoja oficial como líneas de texto: Word las dibuja como texto editable (no como imagen). */
+export type NativeLine =
+	| { k: "head"; left: string; right: string }
+	| { k: "week"; text: string }
+	| { k: "kv"; label: string; value: string }
+	| { k: "bar"; label: string; color: string; cols?: string[] }
+	| { k: "row"; time?: string; title: string; main?: string; aux?: string; role?: string; bold?: boolean; sub?: string[] }
+	| { k: "rule" }
+	| { k: "title"; text: string }
+	| { k: "field"; label: string; value: string }
+	| { k: "check"; label: string; on: boolean }
+	| { k: "text"; text: string; bold?: boolean; italic?: boolean; size?: number };
 
 export interface ReportDoc {
 	title: string;

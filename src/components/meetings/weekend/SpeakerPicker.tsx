@@ -9,6 +9,8 @@ export interface AssignableSpeaker {
 	fullName: string;
 	congregationName: string | null;
 	outlineIds: string[];
+	/** Canción que el orador usa con cada bosquejo (id del bosquejo → número). */
+	outlineSongs?: Record<string, number>;
 }
 
 export interface OutlineOption {

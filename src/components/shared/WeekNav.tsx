@@ -1,12 +1,49 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, formatWeekRangeEs, mondayOf, toISODate } from "@/lib/mwb/dates";
+import { confirmDiscardChanges } from "@/lib/useUnsavedChanges";
+
+/** Semana elegida de una pantalla, recordada en el navegador: al volver a abrir la pantalla carga en esa misma semana.
+ * `key` distingue la pantalla (cada una recuerda la suya). */
+export function useStoredWeek(key: string): [string, (weekStart: string) => void] {
+	const storageKey = `mc.week.${key}`;
+	const [weekStart, setWeek] = useState(() => toISODate(mondayOf(new Date())));
+
+	// Se lee después de montar (no en el render inicial) para que el servidor y el cliente pinten lo mismo.
+	useEffect(() => {
+		try {
+			const saved = window.localStorage.getItem(storageKey);
+			if (saved && /^d{4}-d{2}-d{2}$/.test(saved)) setWeek(toISODate(mondayOf(new Date(`${saved}T00:00:00Z`))));
+		} catch {
+			// sin almacenamiento disponible: se queda con la semana actual
+		}
+	}, [storageKey]);
+
+	const set = useCallback(
+		(value: string) => {
+			setWeek(value);
+			try {
+				window.localStorage.setItem(storageKey, value);
+			} catch {
+				// ignorar
+			}
+		},
+		[storageKey],
+	);
+	return [weekStart, set];
+}
 
 /** Selector de semana (lunes ISO) compartido por las pantallas semanales.
  * En pantallas estrechas ocupa el 100% del ancho (el rango se estira entre
  * las flechas); desde `sm` mide lo que necesita. */
-export function WeekNav({ weekStart, onChange }: { weekStart: string; onChange: (weekStart: string) => void }) {
+export function WeekNav({ weekStart, onChange: change }: { weekStart: string; onChange: (weekStart: string) => void }) {
+	// Cambiar de semana descarta lo que no se haya guardado: se pregunta antes.
+	const onChange = (value: string) => {
+		if (value !== weekStart && !confirmDiscardChanges()) return;
+		change(value);
+	};
 	const shift = (days: number) => onChange(toISODate(addDays(new Date(`${weekStart}T00:00:00Z`), days)));
 
 	return (

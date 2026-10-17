@@ -7,7 +7,7 @@ import { IconButton, PageHeader } from "@/components/ui/Layout";
 import { ExportButton } from "@/components/export/ExportButton";
 import { MwbImportDialog } from "./MwbImportDialog";
 import { WeekBuilder } from "./WeekBuilder";
-import { WeekNav } from "@/components/shared/WeekNav";
+import { WeekNav, useStoredWeek } from "@/components/shared/WeekNav";
 import { addDays, mondayOf, toISODate } from "@/lib/mwb/dates";
 
 interface MeetingRow {
@@ -15,7 +15,7 @@ interface MeetingRow {
 }
 
 export function MidweekList() {
-	const [weekStart, setWeekStart] = useState(() => toISODate(mondayOf(new Date())));
+	const [weekStart, setWeekStart] = useStoredWeek("midweek");
 	const [rows, setRows] = useState<MeetingRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [importOpen, setImportOpen] = useState(false);
@@ -47,11 +47,9 @@ export function MidweekList() {
 							kind="midweek"
 							params={{ date: weekStart }}
 							variants={[
-								{ label: "Esta semana", params: { scope: "week" } },
-								{ label: "Ambas reuniones de la semana", kind: "meetings-week", params: {} },
-								{ label: "Todo el mes", params: { scope: "month" } },
-								{ label: "Programa del mes (S-140)", kind: "s140", params: { scope: "month" } },
-								{ label: "Papeletas de la semana (S-89)", kind: "s89", params: { scope: "week" } },
+								{ label: "Esta semana", kind: "s140", params: { scope: "week" } },
+								{ label: "Todo el mes", kind: "s140", params: { scope: "month" } },
+								{ label: "Hojas de asignaciones (S-89)", kind: "s89", params: { scope: "week" } },
 							]}
 							label="Descargar reporte"
 							title="Reporte de entre semana"

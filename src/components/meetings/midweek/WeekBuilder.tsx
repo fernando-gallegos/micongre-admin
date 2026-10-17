@@ -8,13 +8,14 @@ import { Input, Select } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { IconButton, List, SectionLabel } from "@/components/ui/Layout";
 import { BrotherSelector } from "@/components/shared/BrotherSelector";
-import { ExportButton } from "@/components/export/ExportButton";
+import { SongSelect } from "@/components/shared/SongSelect";
 import { SendAssignmentsButton } from "@/components/shared/SendAssignmentsButton";
 import { formatLongDate } from "@/lib/dateFormat";
 import type { EligibleUser } from "@/lib/rbac/eligibility";
 import { PRIVILEGE_IDS, SECTION_GROUP_BY_TYPE, SECTION_GROUP_LABELS, SECTION_LABELS } from "@/lib/rbac/roles";
 import { getStudentPartRule, STUDENT_PART_TITLES } from "@/lib/rbac/studentParts";
 import { PageLoader } from "@/components/ui/Spinner";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 interface Assignment {
 	id: string;
@@ -214,6 +215,8 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 		load();
 	}
 
+	useUnsavedChanges(Object.keys(meetingDraft).length > 0 || Object.keys(assignmentDrafts).length > 0);
+
 	if (!savedMeeting) {
 		return <PageLoader />;
 	}
@@ -254,12 +257,6 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 				<h2 className="font-display text-[22px] font-medium leading-tight text-ink">{formatLongDate(meeting.meetingDate)}</h2>
 				<div className="flex flex-wrap items-center gap-1">
 					{sendMessage && <span className="text-xs text-ink-soft">{sendMessage}</span>}
-					<ExportButton
-						kind="s89"
-						params={{ date: meeting.meetingDate, scope: "week" }}
-						label="Descargar papeletas S-89"
-						title="Papeletas S-89"
-					/>
 					<IconButton label="Ver notificaciones S-89" icon={FileText} href={`/meetings/midweek/${meetingId}/notify`} />
 					<SendAssignmentsButton endpoint={`/api/midweek/${meetingId}/notify`} onMessage={setSendMessage} />
 					<Button onClick={handleSave} disabled={!dirty || saving}>
@@ -320,6 +317,11 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 				</Card>
 			</section>
 
+			{/* Cada canción va en su lugar del programa: inicial antes de Tesoros, intermedia en Nuestra vida cristiana y final al cierre. */}
+			<Card>
+				<SongSelect label="Canción" value={meeting.openingSongNumber} onChange={(n) => patchMeeting({ openingSongNumber: n })} />
+			</Card>
+
 			{GROUP_ORDER.map((group) => {
 				const rows = groups[group];
 				// "Seamos mejores maestros" se muestra aunque no tenga partes, porque
@@ -331,20 +333,12 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 						<div className={`mb-2 flex items-center gap-2 px-1 text-[13px] font-semibold uppercase tracking-wider ${style.header}`}>
 							<span className={`h-2.5 w-2.5 rounded-full ${style.dot}`} aria-hidden="true" />
 							{SECTION_GROUP_LABELS[group]}
-							{group === "living" && (
-								<label className="ml-auto flex items-center gap-2 text-xs font-medium normal-case tracking-normal text-ink-soft">
-									Canción
-									<input
-										type="number"
-										min={1}
-										inputMode="numeric"
-										value={meeting.middleSongNumber ?? ""}
-										onChange={(e) => patchMeeting({ middleSongNumber: e.target.value ? Number(e.target.value) : null })}
-										className="h-8 w-16 rounded-lg border border-border bg-surface px-2 text-center text-sm text-ink"
-									/>
-								</label>
-							)}
 						</div>
+						{group === "living" && (
+							<div className="mb-2">
+								<SongSelect label="Canción" value={meeting.middleSongNumber} onChange={(n) => patchMeeting({ middleSongNumber: n })} />
+							</div>
+						)}
 						<List>
 							{rows.map((row) => {
 								// Estudio bíblico de la congregación: una sola fila con Conductor y Lector.
@@ -504,6 +498,10 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 					</section>
 				);
 			})}
+
+			<Card>
+				<SongSelect label="Canción" value={meeting.closingSongNumber} onChange={(n) => patchMeeting({ closingSongNumber: n })} />
+			</Card>
 
 			<Modal open={customModalOpen} onClose={() => setCustomModalOpen(false)} title="Asignación personalizada">
 				<div className="flex flex-col gap-3">

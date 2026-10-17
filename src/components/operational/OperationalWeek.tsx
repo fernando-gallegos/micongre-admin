@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ExportButton } from "@/components/export/ExportButton";
 import { Card } from "@/components/ui/Card";
 import { PageHeader, SectionLabel, Segmented } from "@/components/ui/Layout";
-import { WeekNav } from "@/components/shared/WeekNav";
+import { WeekNav, useStoredWeek } from "@/components/shared/WeekNav";
 import { addDays, mondayOf, toISODate } from "@/lib/mwb/dates";
 import { WeeklyMatrix } from "./WeeklyMatrix";
 
@@ -28,7 +28,7 @@ interface MeetingRow {
 }
 
 export function OperationalWeek() {
-	const [weekStart, setWeekStart] = useState(() => toISODate(mondayOf(new Date())));
+	const [weekStart, setWeekStart] = useStoredWeek("operational");
 	const [rows, setRows] = useState<MeetingRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [tab, setTab] = useState<"midweek" | "weekend">("midweek");
@@ -67,16 +67,8 @@ export function OperationalWeek() {
 						kind="operational"
 						params={{ date: weekStart }}
 						variants={[
-							{ label: "Semana (ambas reuniones)", params: { meeting: "both", scope: "week" } },
-							{
-								label: tab === "midweek" ? "Solo entre semana" : "Solo fin de semana",
-								params: { meeting: tab, scope: "week" },
-							},
-							{ label: "Mes (ambas reuniones)", params: { meeting: "both", scope: "month" } },
-							{
-								label: tab === "midweek" ? "Mes, solo entre semana" : "Mes, solo fin de semana",
-								params: { meeting: tab, scope: "month" },
-							},
+							{ label: "Esta semana", params: { scope: "week" } },
+							{ label: "Todo el mes", params: { scope: "month" } },
 						]}
 						label="Descargar reporte de tareas operativas"
 					/>

@@ -8,7 +8,9 @@ import {
 	operationalSchedules,
 	privileges,
 	publicTalkOutlines,
+	songs,
 	speakerCongregations,
+	speakerOutlines,
 	speakers,
 	users,
 	weekendMeetings,
@@ -144,6 +146,15 @@ export interface WeekendData {
 	speaker: string | null;
 	speakerCongregation: string | null;
 	talk: string | null;
+	/** Título del bosquejo, sin el número. */
+	talkTitle: string | null;
+	/** Canción que ese orador usa con ese discurso (número del catálogo). */
+	talkSong: number | null;
+	/** La reunión empieza con La Atalaya y el discurso público va después. */
+	watchtowerFirst: boolean;
+	watchtowerTitle: string | null;
+	watchtowerSong: number | null;
+	closingSong: number | null;
 	conductor: string | null;
 	reader: string | null;
 	prayer: string | null;
@@ -159,16 +170,26 @@ export async function loadWeekend(db: Database, from: string, to: string): Promi
 			conductorId: weekendMeetings.watchtowerConductorId,
 			readerId: weekendMeetings.watchtowerReaderId,
 			prayerId: weekendMeetings.prayerUserId,
+			watchtowerFirst: weekendMeetings.watchtowerFirst,
+			watchtowerTitle: weekendMeetings.watchtowerTitle,
+			watchtowerSong: weekendMeetings.watchtowerSongNumber,
+			closingSong: weekendMeetings.closingSongNumber,
 			speakerName: sql<string | null>`coalesce(${users.fullName}, ${speakers.fullName})`,
 			speakerCongregation: speakerCongregations.name,
 			outlineNumber: publicTalkOutlines.number,
 			outlineTitle: publicTalkOutlines.title,
+			songNumber: songs.number,
 		})
 		.from(weekendMeetings)
 		.leftJoin(speakers, eq(speakers.id, weekendMeetings.speakerId))
 		.leftJoin(users, eq(users.id, speakers.userId))
 		.leftJoin(speakerCongregations, eq(speakerCongregations.id, speakers.congregationId))
 		.leftJoin(publicTalkOutlines, eq(publicTalkOutlines.id, weekendMeetings.talkOutlineId))
+		.leftJoin(
+			speakerOutlines,
+			and(eq(speakerOutlines.speakerId, weekendMeetings.speakerId), eq(speakerOutlines.outlineId, weekendMeetings.talkOutlineId)),
+		)
+		.leftJoin(songs, eq(songs.number, speakerOutlines.songNumber))
 		.where(and(gte(weekendMeetings.meetingDate, from), lte(weekendMeetings.meetingDate, to)))
 		.orderBy(asc(weekendMeetings.meetingDate));
 	const names = await nameMap(db, meetings.flatMap((m) => [m.chairmanUserId, m.conductorId, m.readerId, m.prayerId]));
@@ -181,6 +202,12 @@ export async function loadWeekend(db: Database, from: string, to: string): Promi
 		speaker: m.speakerName,
 		speakerCongregation: m.speakerCongregation,
 		talk: m.outlineNumber != null ? `${m.outlineNumber}. ${m.outlineTitle ?? ""}`.trim() : null,
+		talkTitle: m.outlineTitle ?? null,
+		talkSong: m.songNumber ?? null,
+		watchtowerFirst: m.watchtowerFirst,
+		watchtowerTitle: m.watchtowerTitle ?? null,
+		watchtowerSong: m.watchtowerSong ?? null,
+		closingSong: m.closingSong ?? null,
 		conductor: get(m.conductorId),
 		reader: get(m.readerId),
 		prayer: get(m.prayerId),

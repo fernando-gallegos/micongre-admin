@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth/session";
 import { assertCanAccessMidweekModule } from "@/lib/rbac/guards";
 import { PRIVILEGE_CODES } from "@/lib/rbac/roles";
 import { updateMidweekMeetingSchema } from "@/lib/validation/midweek";
+import { songTitleMap } from "@/lib/songs/catalog";
 
 async function loadMeetingWithAssignments(db: ReturnType<typeof getDb>, id: string) {
 	const [meeting] = await db.select().from(midweekMeetings).where(eq(midweekMeetings.id, id)).limit(1);
@@ -56,9 +57,15 @@ async function loadMeetingWithAssignments(db: ReturnType<typeof getDb>, id: stri
 		: [];
 	const extraName = new Map(extra.map((u) => [u.id, u.fullName]));
 
+	const titles = await songTitleMap(db);
+	const titleOf = (n: number | null) => (n != null ? (titles.get(n) ?? null) : null);
+
 	return {
 		meeting: {
 			...meeting,
+			openingSongTitle: titleOf(meeting.openingSongNumber),
+			middleSongTitle: titleOf(meeting.middleSongNumber),
+			closingSongTitle: titleOf(meeting.closingSongNumber),
 			chairmanName: meeting.chairmanUserId ? (extraName.get(meeting.chairmanUserId) ?? null) : null,
 			openingPrayerName: meeting.openingPrayerUserId ? (extraName.get(meeting.openingPrayerUserId) ?? null) : null,
 		},

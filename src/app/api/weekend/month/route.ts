@@ -8,10 +8,11 @@ import { addDays, parseISODate, toISODate, weekStartsOfMonth } from "@/lib/mwb/d
 import { assertCanAccessWeekendModule } from "@/lib/rbac/guards";
 import { getDefaultWatchtowerConductorId } from "@/lib/weekend/defaults";
 import { generateWeekendMonthSchema } from "@/lib/validation/weekend";
+import { importWatchtowerForWeeks } from "@/lib/weekend/watchtower";
 
 // Crea las reuniones de fin de semana (sábado) de todas las semanas del mes de
-// la semana indicada que todavía no tengan una. Las semanas con reunión no se
-// tocan, sin importar lo que tengan.
+// la semana indicada que todavía no tengan una, y completa en todas el estudio de La
+// Atalaya (título y canciones) si están vacíos. Lo que ya tienen no se pisa.
 export async function POST(request: Request) {
 	try {
 		const session = await getSession();
@@ -46,7 +47,10 @@ export async function POST(request: Request) {
 			);
 		}
 
-		return NextResponse.json({ created: missing.length, skipped: weekStarts.length - missing.length });
+		// Título del estudio de La Atalaya y sus dos canciones, directo de JW.ORG.
+		const watchtower = await importWatchtowerForWeeks(db, weekStarts);
+
+		return NextResponse.json({ created: missing.length, skipped: weekStarts.length - missing.length, watchtower });
 	} catch (error) {
 		return errorResponse(error);
 	}

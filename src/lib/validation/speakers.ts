@@ -1,10 +1,14 @@
 import { z } from "zod";
 
+/** Canción de cada bosquejo del repertorio: id del bosquejo → número de canción (o null). */
+const outlineSongs = z.record(z.string(), z.number().int().min(1).max(999).nullable());
+
 export const createSpeakerSchema = z.discriminatedUnion("kind", [
 	z.object({
 		kind: z.literal("local"),
 		userId: z.string().uuid(),
 		outlineIds: z.array(z.string().min(1)).default([]),
+		outlineSongs: outlineSongs.optional(),
 	}),
 	z.object({
 		kind: z.literal("visiting"),
@@ -12,6 +16,7 @@ export const createSpeakerSchema = z.discriminatedUnion("kind", [
 		phone: z.string().nullable().optional(),
 		congregationId: z.string().min(1).nullable().optional(),
 		outlineIds: z.array(z.string().min(1)).default([]),
+		outlineSongs: outlineSongs.optional(),
 	}),
 ]);
 
@@ -22,6 +27,7 @@ export const updateSpeakerSchema = z.object({
 	notes: z.string().nullable().optional(),
 	active: z.boolean().optional(),
 	outlineIds: z.array(z.string().min(1)).optional(),
+	outlineSongs: outlineSongs.optional(),
 });
 
 export const createSpeakerCongregationSchema = z.object({

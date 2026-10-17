@@ -5,6 +5,7 @@ import { buildGroups } from "./builders/groups";
 import { buildInformes } from "./builders/informes";
 import { buildMeetings } from "./builders/meetings";
 import { buildOperational } from "./builders/operational";
+import { buildOutgoing } from "./builders/outgoing";
 import { buildPeople } from "./builders/people";
 import { buildPrograms } from "./builders/programs";
 import { buildS21 } from "./builders/s21";
@@ -28,6 +29,7 @@ export const REPORT_BUILDERS: Record<string, ReportBuilder> = {
 	// Formatos oficiales: S-140 (entre semana), programa de fin de semana y papeletas S-89.
 	s140: buildPrograms,
 	"weekend-program": buildPrograms,
+	"outgoing-talks": buildOutgoing,
 	s89: buildPrograms,
 	"reports-month": buildInformes,
 	s21: buildS21,

@@ -37,7 +37,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 		if (!speaker) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
 		const outlineRows = await db
-			.select({ outlineId: speakerOutlines.outlineId })
+			.select({ outlineId: speakerOutlines.outlineId, songNumber: speakerOutlines.songNumber })
 			.from(speakerOutlines)
 			.where(eq(speakerOutlines.speakerId, id));
 
@@ -47,6 +47,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				fullName: speaker.localFullName ?? speaker.fullName,
 				phone: speaker.localPhone ?? speaker.phone,
 				outlineIds: outlineRows.map((r) => r.outlineId),
+				outlineSongs: Object.fromEntries(outlineRows.filter((r) => r.songNumber != null).map((r) => [r.outlineId, r.songNumber])),
 			},
 		});
 	} catch (error) {
@@ -65,16 +66,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 			return NextResponse.json({ error: "invalid_body", details: parsed.error.flatten() }, { status: 400 });
 		}
 
-		const { outlineIds, ...patch } = parsed.data;
+		const { outlineIds, outlineSongs, ...patch } = parsed.data;
 		const db = getDb();
 
 		if (Object.keys(patch).length > 0) {
 			await db.update(speakers).set(patch).where(eq(speakers.id, id));
 		}
 		if (outlineIds) {
+			// Si no llegan canciones, se conservan las que ya tenía cada bosquejo.
+			const kept = outlineSongs
+				? null
+				: new Map((await db.select().from(speakerOutlines).where(eq(speakerOutlines.speakerId, id))).map((r) => [r.outlineId, r.songNumber]));
 			await db.delete(speakerOutlines).where(eq(speakerOutlines.speakerId, id));
 			if (outlineIds.length > 0) {
-				await db.insert(speakerOutlines).values(outlineIds.map((outlineId) => ({ speakerId: id, outlineId })));
+				await db
+					.insert(speakerOutlines)
+					.values(outlineIds.map((outlineId) => ({ speakerId: id, outlineId, songNumber: (outlineSongs ? outlineSongs[outlineId] : kept?.get(outlineId)) ?? null })));
 			}
 		}
 

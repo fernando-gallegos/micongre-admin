@@ -1,12 +1,13 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { publicTalkOutlines, speakerCongregations, speakers, users, weekendMeetings } from "@/db/schema";
+import { publicTalkOutlines, speakerCongregations, speakerOutlines, speakers, users, weekendMeetings } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { assertCanAccessWeekendModule, assertEligibleForAssignment } from "@/lib/rbac/guards";
 import { PRIVILEGE_CODES, PRIVILEGE_IDS } from "@/lib/rbac/roles";
 import { updateWeekendMeetingSchema } from "@/lib/validation/weekend";
+import { songTitleMap } from "@/lib/songs/catalog";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
 	try {
@@ -27,18 +28,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				watchtowerConductorId: weekendMeetings.watchtowerConductorId,
 				watchtowerReaderId: weekendMeetings.watchtowerReaderId,
 				prayerUserId: weekendMeetings.prayerUserId,
+				watchtowerFirst: weekendMeetings.watchtowerFirst,
+				watchtowerTitle: weekendMeetings.watchtowerTitle,
+				watchtowerSongNumber: weekendMeetings.watchtowerSongNumber,
+				closingSongNumber: weekendMeetings.closingSongNumber,
 				status: weekendMeetings.status,
 				notes: weekendMeetings.notes,
 				speakerName: sql<string | null>`coalesce(${users.fullName}, ${speakers.fullName})`,
 				speakerCongregationName: speakerCongregations.name,
 				talkOutlineNumber: publicTalkOutlines.number,
 				talkOutlineTitle: publicTalkOutlines.title,
+				talkSongNumber: speakerOutlines.songNumber,
 			})
 			.from(weekendMeetings)
 			.leftJoin(speakers, eq(speakers.id, weekendMeetings.speakerId))
 			.leftJoin(users, eq(users.id, speakers.userId))
 			.leftJoin(speakerCongregations, eq(speakerCongregations.id, speakers.congregationId))
 			.leftJoin(publicTalkOutlines, eq(publicTalkOutlines.id, weekendMeetings.talkOutlineId))
+			.leftJoin(
+				speakerOutlines,
+				and(eq(speakerOutlines.speakerId, weekendMeetings.speakerId), eq(speakerOutlines.outlineId, weekendMeetings.talkOutlineId)),
+			)
 			.where(eq(weekendMeetings.id, id))
 			.limit(1);
 		if (!meeting) return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -49,9 +59,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 		const named = roleIds.length ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, roleIds)) : [];
 		const nameOf = (id: string | null) => (id ? (named.find((u) => u.id === id)?.fullName ?? null) : null);
 
+		const titles = await songTitleMap(db);
+		const titleOf = (n: number | null) => (n != null ? (titles.get(n) ?? null) : null);
+
 		return NextResponse.json({
 			meeting: {
 				...meeting,
+				talkSongTitle: titleOf(meeting.talkSongNumber),
+				watchtowerSongTitle: titleOf(meeting.watchtowerSongNumber),
+				closingSongTitle: titleOf(meeting.closingSongNumber),
 				notes: canSeeNotes ? meeting.notes : null,
 				chairmanName: nameOf(meeting.chairmanUserId),
 				watchtowerConductorName: nameOf(meeting.watchtowerConductorId),

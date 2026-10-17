@@ -3,19 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { IconButton } from "@/components/ui/Layout";
+import { IconButton, PageHeader } from "@/components/ui/Layout";
 import { ExportButton } from "@/components/export/ExportButton";
 import { WeekendDetail } from "./WeekendDetail";
 import { OutgoingTalksList } from "./OutgoingTalksList";
-import { WeekNav } from "@/components/shared/WeekNav";
+import { WeekNav, useStoredWeek } from "@/components/shared/WeekNav";
 import { addDays, mondayOf, toISODate } from "@/lib/mwb/dates";
 
 interface MeetingRow {
 	id: string;
 }
 
-export function WeekendList() {
-	const [weekStart, setWeekStart] = useState(() => toISODate(mondayOf(new Date())));
+export function WeekendList({ tabs }: { tabs: React.ReactNode }) {
+	const [weekStart, setWeekStart] = useStoredWeek("weekend");
 	const [rows, setRows] = useState<MeetingRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [generating, setGenerating] = useState(false);
@@ -56,32 +56,28 @@ export function WeekendList() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="w-full min-w-0 sm:w-auto">
-					<WeekNav weekStart={weekStart} onChange={setWeekStart} />
-				</div>
-				<div className="ml-auto flex items-center gap-1">
-					<ExportButton
-						kind="weekend"
-						params={{ date: weekStart }}
-						variants={[
-							{ label: "Esta semana", params: { scope: "week" } },
-							{ label: "Ambas reuniones de la semana", kind: "meetings-week", params: {} },
-							{ label: "Todo el mes", params: { scope: "month" } },
-							{ label: "Programa del mes (diseño S-140)", kind: "weekend-program", params: { scope: "month" } },
-						]}
-						label="Descargar reporte"
-						title="Reporte de fin de semana"
-					/>
-					<IconButton
-						label="Agregar las reuniones del mes"
-						icon={Download}
-						tone="accent"
-						disabled={generating}
-						onClick={generateMonth}
-					/>
-				</div>
-			</div>
+			<PageHeader
+				title="Fin de semana"
+				actions={
+					<>
+						<ExportButton
+							kind="weekend-program"
+							params={{ date: weekStart }}
+							variants={[
+								{ label: "Esta semana", params: { scope: "week" } },
+								{ label: "Todo el mes", params: { scope: "month" } },
+								{ label: "Oradores salientes (semana)", kind: "outgoing-talks", params: { scope: "week" } },
+								{ label: "Oradores salientes (mes)", kind: "outgoing-talks", params: { scope: "month" } },
+							]}
+							label="Descargar reporte"
+							title="Reporte de fin de semana"
+						/>
+						<IconButton label="Agregar las reuniones del mes" icon={Download} tone="accent" disabled={generating} onClick={generateMonth} />
+					</>
+				}
+			/>
+			{tabs}
+			<WeekNav weekStart={weekStart} onChange={setWeekStart} />
 			{generateError && <p className="text-sm text-red-600">No se pudieron agregar las reuniones del mes.</p>}
 
 			{!loading && rows.length === 0 && (

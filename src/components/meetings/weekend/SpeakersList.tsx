@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Globe, Phone, Plus } from "lucide-react";
 import { Card, Badge } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Input, Select } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Chip, ChipGroup, IconButton, List } from "@/components/ui/Layout";
 import { AddArrangementModal, ArrangementsPanel } from "./ArrangementsPanel";
@@ -23,6 +23,13 @@ interface Speaker {
 	congregationName: string | null;
 	active: boolean;
 	outlineIds: string[];
+	/** Canción que usa con cada bosquejo: id del bosquejo → número. */
+	outlineSongs: Record<string, number>;
+}
+
+interface Song {
+	number: number;
+	title: string;
 }
 
 interface Outline {
@@ -42,10 +49,16 @@ function OutlineChecklist({
 	outlines,
 	selected,
 	onToggle,
+	songs,
+	songByOutline,
+	onSong,
 }: {
 	outlines: Outline[];
 	selected: Set<string>;
 	onToggle: (id: string) => void;
+	songs: Song[];
+	songByOutline: Record<string, number | null>;
+	onSong: (outlineId: string, song: number | null) => void;
 }) {
 	if (outlines.length === 0) {
 		return <p className="text-xs text-ink-soft">No hay bosquejos en el catálogo todavía — impórtalos en Historial.</p>;
@@ -54,12 +67,33 @@ function OutlineChecklist({
 	const sorted = [...outlines].sort((a, b) => a.number - b.number);
 
 	return (
-		<div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto rounded-2xl border border-border p-3 text-sm">
+		<div className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-2xl border border-border p-3 text-sm">
+			{songs.length === 0 && (
+				<p className="pb-1 text-xs text-ink-soft">Importa las canciones (EPUB «Cantemos con gozo») en Historial para asignar una a cada discurso.</p>
+			)}
 			{sorted.map((outline) => (
-				<label key={outline.id} className="flex items-center gap-2 py-0.5">
-					<input type="checkbox" checked={selected.has(outline.id)} onChange={() => onToggle(outline.id)} />
-					{outline.number}. {outline.title}
-				</label>
+				<div key={outline.id} className="flex flex-col gap-1 py-0.5">
+					<label className="flex items-center gap-2">
+						<input type="checkbox" checked={selected.has(outline.id)} onChange={() => onToggle(outline.id)} />
+						{outline.number}. {outline.title}
+					</label>
+					{selected.has(outline.id) && songs.length > 0 && (
+						<div className="pl-6">
+							<Select
+								aria-label={`Canción del discurso ${outline.number}`}
+								value={songByOutline[outline.id] != null ? String(songByOutline[outline.id]) : ""}
+								onChange={(e) => onSong(outline.id, e.target.value ? Number(e.target.value) : null)}
+							>
+								<option value="">Sin canción</option>
+								{songs.map((s) => (
+									<option key={s.number} value={s.number}>
+										{s.number}. {s.title}
+									</option>
+								))}
+							</Select>
+						</div>
+					)}
+				</div>
 			))}
 		</div>
 	);
@@ -68,6 +102,7 @@ function OutlineChecklist({
 export function SpeakersList() {
 	const [speakers, setSpeakers] = useState<Speaker[]>([]);
 	const [outlines, setOutlines] = useState<Outline[]>([]);
+	const [songs, setSongs] = useState<Song[]>([]);
 	const [congregations, setCongregations] = useState<Congregation[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [search, setSearch] = useState("");
@@ -90,11 +125,13 @@ export function SpeakersList() {
 
 	const load = useCallback(async () => {
 		setLoading(true);
-		const [speakersRes, outlinesRes, congregationsRes] = await Promise.all([
+		const [speakersRes, outlinesRes, congregationsRes, songsRes] = await Promise.all([
 			fetch("/api/weekend/speakers"),
 			fetch("/api/weekend/outlines"),
 			fetch("/api/weekend/congregations"),
+			fetch("/api/weekend/songs"),
 		]);
+		if (songsRes.ok) setSongs(((await songsRes.json()) as { items: Song[] }).items);
 		if (speakersRes.ok) setSpeakers(((await speakersRes.json()) as { items: Speaker[] }).items);
 		if (outlinesRes.ok) setOutlines(((await outlinesRes.json()) as { items: Outline[] }).items);
 		if (congregationsRes.ok) setCongregations(((await congregationsRes.json()) as { items: Congregation[] }).items);
@@ -176,7 +213,10 @@ export function SpeakersList() {
 					{!loading && filtered.length > 0 && (
 						<List>
 							{filtered.map((speaker) => {
-								const numbers = speaker.outlineIds.filter((id) => outlineById.has(id)).length;
+								const mine = speaker.outlineIds
+									.map((id) => outlineById.get(id))
+									.filter((o): o is Outline => !!o)
+									.sort((x, y) => x.number - y.number);
 								const where = speaker.kind === "local" ? "Local" : (speaker.congregationName ?? "Visitante");
 								const phoneHref = speaker.phone ? `tel:${speaker.phone.replace(/[^\d+]/g, "")}` : null;
 
@@ -191,8 +231,21 @@ export function SpeakersList() {
 												{speaker.fullName}
 												{!speaker.active && <Badge tone="neutral">Inactivo</Badge>}
 											</div>
-											<div className="mt-0.5 text-[13px] text-ink-soft">
-												{where} · {numbers === 0 ? "Sin bosquejos" : `${numbers} ${numbers === 1 ? "discurso" : "discursos"}`}
+											<div className="mt-0.5 text-[13px] text-ink-soft">{where}</div>
+											<div className="mt-1.5 flex flex-wrap gap-1">
+												{mine.length === 0 ? (
+													<span className="text-[13px] text-ink-soft">Sin bosquejos</span>
+												) : (
+													mine.map((o) => (
+														<span
+															key={o.id}
+															title={o.title}
+															className="inline-flex min-w-8 items-center justify-center rounded-full bg-surface-alt px-2 py-0.5 text-xs font-medium text-ink"
+														>
+															{o.number}
+														</span>
+													))
+												)}
 											</div>
 										</button>
 										{phoneHref && <IconButton label="Llamar" icon={Phone} href={phoneHref} />}
@@ -236,6 +289,7 @@ export function SpeakersList() {
 				open={modalOpen}
 				onClose={() => setModalOpen(false)}
 				outlines={outlines}
+				songs={songs}
 				congregations={congregations}
 				onSaved={() => {
 					setModalOpen(false);
@@ -248,6 +302,7 @@ export function SpeakersList() {
 				<EditSpeakerModal
 					speaker={editingSpeaker}
 					outlines={outlines}
+					songs={songs}
 					congregations={congregations}
 					onClose={() => setEditingId(null)}
 					onSaved={() => {
@@ -265,6 +320,7 @@ function SpeakerFormModal({
 	open,
 	onClose,
 	outlines,
+	songs,
 	congregations,
 	onSaved,
 	onCongregationSaved,
@@ -272,6 +328,7 @@ function SpeakerFormModal({
 	open: boolean;
 	onClose: () => void;
 	outlines: Outline[];
+	songs: Song[];
 	congregations: Congregation[];
 	onSaved: () => void;
 	onCongregationSaved: (c: Congregation) => void;
@@ -284,10 +341,12 @@ function SpeakerFormModal({
 	const [phone, setPhone] = useState("");
 	const [congregationId, setCongregationId] = useState("");
 	const [selectedOutlines, setSelectedOutlines] = useState<Set<string>>(new Set());
+	const [songByOutline, setSongByOutline] = useState<Record<string, number | null>>({});
 	const [error, setError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 
 	function reset() {
+		setSongByOutline({});
 		setKind("local");
 		setPublisherSearch("");
 		setPublisherResults([]);
@@ -328,13 +387,14 @@ function SpeakerFormModal({
 		setError(null);
 		const body =
 			kind === "local"
-				? { kind, userId: selectedPublisher?.id, outlineIds: [...selectedOutlines] }
+				? { kind, userId: selectedPublisher?.id, outlineIds: [...selectedOutlines], outlineSongs: songByOutline }
 				: {
 						kind,
 						fullName,
 						phone: phone || null,
 						congregationId: congregationId || null,
 						outlineIds: [...selectedOutlines],
+						outlineSongs: songByOutline,
 					};
 		const response = await fetch("/api/weekend/speakers", {
 			method: "POST",
@@ -425,7 +485,14 @@ function SpeakerFormModal({
 
 				<div>
 					<p className="mb-1 text-sm font-medium text-ink">Bosquejos que puede dar</p>
-					<OutlineChecklist outlines={outlines} selected={selectedOutlines} onToggle={toggleOutline} />
+					<OutlineChecklist
+						outlines={outlines}
+						selected={selectedOutlines}
+						onToggle={toggleOutline}
+						songs={songs}
+						songByOutline={songByOutline}
+						onSong={(id, song) => setSongByOutline((prev) => ({ ...prev, [id]: song }))}
+					/>
 				</div>
 
 				{error && <p className="text-sm text-red-600">{error}</p>}
@@ -440,6 +507,7 @@ function SpeakerFormModal({
 function EditSpeakerModal({
 	speaker,
 	outlines,
+	songs,
 	congregations,
 	onClose,
 	onSaved,
@@ -447,6 +515,7 @@ function EditSpeakerModal({
 }: {
 	speaker: Speaker;
 	outlines: Outline[];
+	songs: Song[];
 	congregations: Congregation[];
 	onClose: () => void;
 	onSaved: () => void;
@@ -456,6 +525,7 @@ function EditSpeakerModal({
 	const [congregationId, setCongregationId] = useState(speaker.congregationId ?? "");
 	const [active, setActive] = useState(speaker.active);
 	const [selectedOutlines, setSelectedOutlines] = useState<Set<string>>(new Set(speaker.outlineIds));
+	const [songByOutline, setSongByOutline] = useState<Record<string, number | null>>({ ...speaker.outlineSongs });
 	const [error, setError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 
@@ -471,7 +541,7 @@ function EditSpeakerModal({
 	async function save() {
 		setSaving(true);
 		setError(null);
-		const patch: Record<string, unknown> = { active, outlineIds: [...selectedOutlines] };
+		const patch: Record<string, unknown> = { active, outlineIds: [...selectedOutlines], outlineSongs: songByOutline };
 		if (speaker.kind === "visiting") {
 			patch.phone = phone || null;
 			patch.congregationId = congregationId || null;
@@ -526,7 +596,14 @@ function EditSpeakerModal({
 
 				<div>
 					<p className="mb-1 text-sm font-medium text-ink">Bosquejos que puede dar</p>
-					<OutlineChecklist outlines={outlines} selected={selectedOutlines} onToggle={toggleOutline} />
+					<OutlineChecklist
+						outlines={outlines}
+						selected={selectedOutlines}
+						onToggle={toggleOutline}
+						songs={songs}
+						songByOutline={songByOutline}
+						onSong={(id, song) => setSongByOutline((prev) => ({ ...prev, [id]: song }))}
+					/>
 				</div>
 
 				{error && <p className="text-sm text-red-600">{error}</p>}

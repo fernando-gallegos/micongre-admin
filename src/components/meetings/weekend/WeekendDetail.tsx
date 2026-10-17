@@ -4,14 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { Save, TowerControl, UserRound } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Input";
+import { Input, Select } from "@/components/ui/Input";
 import { BrotherSelector } from "@/components/shared/BrotherSelector";
 import { SendAssignmentsButton } from "@/components/shared/SendAssignmentsButton";
+import { SongSelect, useSongTitles } from "@/components/shared/SongSelect";
+import { songLabel } from "@/lib/songs/label";
 import { SpeakerPicker, type AssignableSpeaker, type OutlineOption } from "./SpeakerPicker";
 import { formatLongDate } from "@/lib/dateFormat";
 import type { EligibleUser } from "@/lib/rbac/eligibility";
 import { PRIVILEGE_IDS } from "@/lib/rbac/roles";
 import { PageLoader } from "@/components/ui/Spinner";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 interface Meeting {
 	id: string;
@@ -22,6 +25,10 @@ interface Meeting {
 	watchtowerConductorId: string | null;
 	watchtowerReaderId: string | null;
 	prayerUserId: string | null;
+	watchtowerFirst: boolean;
+	watchtowerTitle: string | null;
+	watchtowerSongNumber: number | null;
+	closingSongNumber: number | null;
 	status: string;
 	notes: string | null;
 }
@@ -34,6 +41,7 @@ const ALL_PRIVILEGE_IDS = [
 ];
 
 export function WeekendDetail({ meetingId }: { meetingId: string }) {
+	const songTitles = useSongTitles();
 	const [saved, setSaved] = useState<Meeting | null>(null);
 	// Cambios sin guardar: se envían todos juntos con el botón "Guardar".
 	const [draft, setDraft] = useState<Partial<Meeting>>({});
@@ -101,6 +109,8 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 		load();
 	}
 
+	useUnsavedChanges(Object.keys(draft).length > 0);
+
 	if (!saved) {
 		return <PageLoader />;
 	}
@@ -109,6 +119,7 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 
 	// Aviso no bloqueante: la persona ya tiene otro rol en esta misma reunión.
 	const speakerUserId = speakers.find((s) => s.id === meeting.speakerId)?.userId ?? null;
+	const talkSong = (meeting.speakerId && meeting.talkOutlineId ? speakers.find((s) => s.id === meeting.speakerId)?.outlineSongs?.[meeting.talkOutlineId] : null) ?? null;
 	const roleHolders: [string, string | null][] = [
 		["Presidente", meeting.chairmanUserId],
 		["Conductor de La Atalaya", meeting.watchtowerConductorId],
@@ -140,7 +151,7 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 			</div>
 			{error && <p className="text-sm text-red-600">{error}</p>}
 
-			<div className="flex flex-col gap-3 border-t border-border pt-4">
+			<div className="order-1 flex flex-col gap-3 border-t border-border pt-4">
 				<h3 className="text-[13px] font-semibold uppercase tracking-wider text-ink-soft">Presidencia</h3>
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 					<BrotherSelector
@@ -165,10 +176,14 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 						<option value="scheduled">Programada</option>
 						<option value="cancelled">Cancelada</option>
 					</Select>
+					<label className="flex min-h-12 items-center gap-2 self-end text-sm text-ink">
+						<input type="checkbox" checked={meeting.watchtowerFirst} onChange={(e) => patch({ watchtowerFirst: e.target.checked })} />
+						Iniciar con La Atalaya
+					</label>
 				</div>
 			</div>
 
-			<div className="flex flex-col gap-3 border-t border-border pt-4">
+			<div className={`flex flex-col gap-3 border-t border-border pt-4 ${meeting.watchtowerFirst ? "order-2" : "order-3"}`}>
 				<h3 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wider text-weekend-watchtower">
 					<TowerControl size={16} />
 					La Atalaya
@@ -188,10 +203,20 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 						warning={warningFor("Lector de La Atalaya", meeting.watchtowerReaderId)}
 						onChange={(userId) => patch({ watchtowerReaderId: userId })}
 					/>
+					<div className="md:col-span-2">
+						<Input
+							label="Título del estudio"
+							value={meeting.watchtowerTitle ?? ""}
+							onChange={(e) => patch({ watchtowerTitle: e.target.value || null })}
+							placeholder="Se trae de JW.ORG con el botón de descargar"
+						/>
+					</div>
+					<SongSelect label="Canción al empezar La Atalaya" value={meeting.watchtowerSongNumber} onChange={(n) => patch({ watchtowerSongNumber: n })} />
+					<SongSelect label="Canción al terminar La Atalaya" value={meeting.closingSongNumber} onChange={(n) => patch({ closingSongNumber: n })} />
 				</div>
 			</div>
 
-			<div className="flex flex-col gap-3 border-t border-border pt-4">
+			<div className={`flex flex-col gap-3 border-t border-border pt-4 ${meeting.watchtowerFirst ? "order-3" : "order-2"}`}>
 				<h3 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wider text-weekend-talk">
 					<UserRound size={16} />
 					Discurso público
@@ -207,9 +232,14 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 						onChangeOutline={(talkOutlineId) => patch({ talkOutlineId })}
 					/>
 				</div>
+				{talkSong != null && (
+					<p className="text-sm text-ink-soft">
+						Canción del discurso (la del orador para este bosquejo; va {meeting.watchtowerFirst ? "al terminar el discurso" : "al empezar la reunión"}): {songLabel(talkSong, songTitles)}
+					</p>
+				)}
 			</div>
 
-			<div className="border-t border-border pt-4">
+			<div className="order-4 border-t border-border pt-4">
 				<label className="flex flex-col gap-1 text-sm">
 					<span className="font-medium text-ink">Notas</span>
 					<textarea

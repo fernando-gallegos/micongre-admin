@@ -15,6 +15,10 @@ export const updateWeekendMeetingSchema = z.object({
 	watchtowerConductorId: z.string().uuid().nullable().optional(),
 	watchtowerReaderId: z.string().uuid().nullable().optional(),
 	prayerUserId: z.string().uuid().nullable().optional(),
+	watchtowerFirst: z.boolean().optional(),
+	watchtowerTitle: z.string().nullable().optional(),
+	watchtowerSongNumber: z.number().int().positive().nullable().optional(),
+	closingSongNumber: z.number().int().positive().nullable().optional(),
 	status: z.enum(["scheduled", "cancelled"]).optional(),
 	notes: z.string().nullable().optional(),
 });

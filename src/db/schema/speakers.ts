@@ -92,9 +92,17 @@ export const speakerOutlines = sqliteTable(
 		outlineId: text("outline_id")
 			.notNull()
 			.references(() => publicTalkOutlines.id, { onDelete: "cascade" }),
+		// Canción que este orador usa con este discurso (número del catálogo `songs`).
+		songNumber: integer("song_number"),
 	},
 	(t) => [primaryKey({ columns: [t.speakerId, t.outlineId] })],
 );
+
+// Catálogo de canciones (EPUB «Cantemos con gozo», sjj): número y título.
+export const songs = sqliteTable("songs", {
+	number: integer("number").primaryKey(),
+	title: text("title").notNull(),
+});
 
 export const ARRANGEMENT_DIRECTIONS = ["outgoing", "incoming"] as const;
 export const ARRANGEMENT_STATUSES = ["planned", "pending", "accepted", "rejected", "counter"] as const;

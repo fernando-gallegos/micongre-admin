@@ -60,7 +60,7 @@ async function buildServiceGroups({ db, session }: BuilderContext): Promise<Repo
 					columns: [
 						{ label: "Nombre", width: 3 },
 						{ label: "Nombramiento", width: 1, align: "center" },
-						{ label: "Cargo en el grupo", width: 2 },
+						{ label: "Asignación en el grupo", width: 2 },
 					],
 					rows: groupMembers.map((m) => [
 						m.fullName,

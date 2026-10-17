@@ -10,6 +10,7 @@ import type { EligibleUser } from "@/lib/rbac/eligibility";
 import { PRIVILEGE_IDS } from "@/lib/rbac/roles";
 import { TaskCell, type OperationalSlot } from "./TaskCell";
 import { PageLoader } from "@/components/ui/Spinner";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 // Las tareas se agrupan en 2 bloques: audio y video (consola y Zoom), y
 // acomodadores (todo lo demás: entrada, auditorio, estacionamiento, baños,
@@ -144,6 +145,8 @@ export function WeeklyMatrix({
 		}
 		setSending(false);
 	}
+
+	useUnsavedChanges(Object.keys(drafts).length > 0);
 
 	if (loading && slots.length === 0) return <PageLoader />;
 

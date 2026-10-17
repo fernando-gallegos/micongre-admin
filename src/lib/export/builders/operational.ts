@@ -1,79 +1,111 @@
-import { and, asc, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, lte } from "drizzle-orm";
 import type { BuilderContext } from "../registry";
-import type { ReportBlock, ReportDoc } from "../types";
-import { midweekMeetings, weekendMeetings } from "@/db/schema";
+import type { ReportDoc } from "../types";
+import { CONGREGATION_ROW_ID, congregations, midweekMeetings, weekendMeetings } from "@/db/schema";
 import { assertCanAccessOperationalModule } from "@/lib/rbac/guards";
-import { loadMeetingTimes, loadOperational, UNASSIGNED, whenLabel } from "./meetingData";
+import { effectiveMeetingDate, type MeetingSchedules } from "@/lib/attendance/summary";
+import { addDays, parseISODate, toISODate } from "@/lib/mwb/dates";
+import { loadOperational } from "./meetingData";
 import { parseRange } from "./meetingDates";
 
 const FOOTER = "Mi Congre";
+const EMPTY = "---";
+const DAYS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
+/** «mar 6 oct» */
+function shortDate(iso: string): string {
+	const d = parseISODate(iso);
+	return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/** Tareas operativas de ambas reuniones en una tabla cruzada (horizontal): una columna por reunión, con la fecha en que de
+ * verdad se celebra, y una fila por tarea; las tareas sin nadie asignado en todo el periodo no aparecen y los huecos llevan «---». */
 export async function buildOperational(ctx: BuilderContext): Promise<ReportDoc> {
 	const { db, session, params } = ctx;
 	assertCanAccessOperationalModule(session);
 
 	const range = parseRange(params);
-	const meetingParam = params.get("meeting");
-	const which: "midweek" | "weekend" | "both" =
-		meetingParam === "midweek" || meetingParam === "weekend" ? meetingParam : "both";
 
-	const times = await loadMeetingTimes(db);
-	const meetings: { type: "midweek" | "weekend"; id: string; date: string; cancelled: boolean }[] = [];
+	const [cong] = await db
+		.select({ s: congregations.meetingSchedules })
+		.from(congregations)
+		.where(eq(congregations.id, CONGREGATION_ROW_ID))
+		.limit(1);
+	let schedules: MeetingSchedules | null = null;
+	try {
+		schedules = cong?.s ? (JSON.parse(cong.s) as MeetingSchedules) : null;
+	} catch {
+		schedules = null;
+	}
 
-	if (which !== "weekend") {
-		const rows = await db
+	// La fecha guardada puede ser el lunes o el sábado de la semana; se busca con margen y se filtra por la fecha real.
+	const from = toISODate(addDays(parseISODate(range.from), -7));
+	const to = toISODate(addDays(parseISODate(range.to), 7));
+	const [mid, wk] = await Promise.all([
+		db
 			.select()
 			.from(midweekMeetings)
-			.where(and(gte(midweekMeetings.meetingDate, range.from), lte(midweekMeetings.meetingDate, range.to)))
-			.orderBy(asc(midweekMeetings.meetingDate));
-		for (const r of rows) meetings.push({ type: "midweek", id: r.id, date: r.meetingDate, cancelled: r.status !== "scheduled" });
-	}
-	if (which !== "midweek") {
-		const rows = await db
+			.where(and(gte(midweekMeetings.meetingDate, from), lte(midweekMeetings.meetingDate, to)))
+			.orderBy(asc(midweekMeetings.meetingDate)),
+		db
 			.select()
 			.from(weekendMeetings)
-			.where(and(gte(weekendMeetings.meetingDate, range.from), lte(weekendMeetings.meetingDate, range.to)))
-			.orderBy(asc(weekendMeetings.meetingDate));
-		for (const r of rows) meetings.push({ type: "weekend", id: r.id, date: r.meetingDate, cancelled: r.status === "cancelled" });
+			.where(and(gte(weekendMeetings.meetingDate, from), lte(weekendMeetings.meetingDate, to)))
+			.orderBy(asc(weekendMeetings.meetingDate)),
+	]);
+
+	const meetings: { type: "midweek" | "weekend"; id: string; date: string }[] = [];
+	for (const r of mid) if (r.status === "scheduled") meetings.push({ type: "midweek", id: r.id, date: effectiveMeetingDate(r.meetingDate, "midweek", schedules) });
+	for (const r of wk) if (r.status !== "cancelled") meetings.push({ type: "weekend", id: r.id, date: effectiveMeetingDate(r.meetingDate, "weekend", schedules) });
+	const inRange = meetings
+		.filter((m) => m.date >= range.from && m.date <= range.to)
+		.sort((a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type));
+
+	if (inRange.length === 0) {
+		return {
+			title: `Tareas operativas — ${range.label}`,
+			fileName: `tareas-operativas-${range.slug}`,
+			landscape: true,
+			blocks: [{ type: "paragraph", text: "No hay reuniones programadas en este periodo.", muted: true }],
+			footer: FOOTER,
+		};
 	}
-	meetings.sort((a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type));
 
-	const blocks: ReportBlock[] = [];
-	if (meetings.length === 0) blocks.push({ type: "paragraph", text: "No hay reuniones programadas.", muted: true });
-
-	for (const m of meetings) {
-		const name = m.type === "midweek" ? "Entre semana" : "Fin de semana";
-		const time = m.type === "midweek" ? times.midweek : times.weekend;
-		blocks.push({ type: "heading", text: `${name} — ${whenLabel(m.date, time)}`, level: 2 });
-		if (m.cancelled) {
-			blocks.push({ type: "paragraph", text: "Reunión cancelada", muted: true });
-			continue;
+	// tarea (con su puesto) → persona por reunión; el orden de las filas es el de las tareas (alfabético).
+	const rowLabels: string[] = [];
+	const cells = new Map<string, (string | null)[]>();
+	for (const [col, m] of inRange.entries()) {
+		for (const r of await loadOperational(db, m.type, m.id)) {
+			const label = r.position ? `${r.task} (${r.position})` : r.task;
+			if (!cells.has(label)) {
+				cells.set(label, inRange.map(() => null));
+				rowLabels.push(label);
+			}
+			if (r.person) cells.get(label)![col] = r.person;
 		}
-		const rows = await loadOperational(db, m.type, m.id);
-		blocks.push({
-			type: "table",
-			table: {
-				sheetName: `${name} ${m.date}`,
-				columns: [
-					{ label: "Tarea", width: 2 },
-					{ label: "Asignado", width: 3 },
-				],
-				rows: rows.map((r) => [
-					r.position ? `${r.task} (${r.position})` : r.task,
-					r.person ?? UNASSIGNED,
-				]),
-			},
-		});
 	}
 
-	const title =
-		which === "both"
-			? `Tareas operativas — ${range.label}`
-			: `Tareas operativas, ${which === "midweek" ? "entre semana" : "fin de semana"} — ${range.label}`;
+	const rows = rowLabels
+		.filter((label) => cells.get(label)!.some((p) => p))
+		.map((label) => [label, ...cells.get(label)!.map((p) => p ?? EMPTY)]);
+
+	const columns = [
+		{ label: "Asignación", width: 2.4 },
+		...inRange.map((m) => ({
+			label: `${m.type === "midweek" ? "Entre semana" : "Fin de semana"} · ${shortDate(m.date)}`,
+			width: 1.4,
+			align: "center" as const,
+		})),
+	];
+
 	return {
-		title,
-		fileName: `tareas-operativas-${which}-${range.slug}`,
-		blocks,
+		title: `Tareas operativas — ${range.label}`,
+		fileName: `tareas-operativas-${range.slug}`,
+		landscape: true,
+		blocks: rows.length
+			? [{ type: "table", table: { sheetName: "Tareas operativas", columns, rows } }]
+			: [{ type: "paragraph", text: "No hay tareas asignadas en este periodo.", muted: true }],
 		footer: FOOTER,
 	};
 }

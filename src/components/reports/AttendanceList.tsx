@@ -18,12 +18,58 @@ interface MeetingRow {
 }
 
 const MEETING_LABEL = { midweek: "Entre semana", weekend: "Fin de semana" } as const;
+
+interface MonthStat {
+	meetings: number;
+	average: number;
+	averageInPerson: number;
+	averageZoom: number;
+}
+interface MonthSummary {
+	month: string;
+	midweek: MonthStat | null;
+	weekend: MonthStat | null;
+}
+
+const num = (n: number) => n.toLocaleString("es", { maximumFractionDigits: 1 });
+const monthName = (ym: string) => {
+	const [y, m] = ym.split("-").map(Number);
+	const name = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("es", { month: "long", year: "numeric", timeZone: "UTC" });
+	return name.charAt(0).toUpperCase() + name.slice(1);
+};
+
+/** Un tipo de reunión dentro de un mes: promedio (presencial + Zoom) y de cuántas reuniones sale. */
+function StatCell({ label, stat }: { label: string; stat: MonthStat | null }) {
+	return (
+		<div className="min-w-0">
+			<p className="text-[12px] text-ink-soft">{label}</p>
+			{stat ? (
+				<>
+					<p className="font-display text-[22px] font-semibold leading-tight text-ink">{num(stat.average)}</p>
+					<p className="text-[12px] text-ink-soft">
+						{stat.meetings} {stat.meetings === 1 ? "reunión" : "reuniones"}
+						{stat.averageZoom > 0 ? ` · ${num(stat.averageInPerson)} en salón + ${num(stat.averageZoom)} Zoom` : ""}
+					</p>
+				</>
+			) : (
+				<p className="text-sm text-ink-soft">—</p>
+			)}
+		</div>
+	);
+}
 const keyOf = (m: MeetingRow) => `${m.meetingType}-${m.id}`;
 
 export function AttendanceList() {
 	const [rows, setRows] = useState<MeetingRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [selectedKey, setSelectedKey] = useState<string | null>(null);
+	const [months, setMonths] = useState<MonthSummary[]>([]);
+
+	// Promedios mensuales del año de servicio: cada reunión cuenta en el mes en que se celebra (según el día de reunión).
+	async function loadSummary() {
+		const res = await fetch(`/api/attendance/summary?from=${getCurrentServiceYear()}-09-01`, { cache: "no-store" });
+		if (res.ok) setMonths(((await res.json()) as { months: MonthSummary[] }).months);
+	}
 
 	useEffect(() => {
 		async function load() {
@@ -72,6 +118,7 @@ export function AttendanceList() {
 			const pick = pending ?? past.at(-1) ?? withAttendance[0];
 			setSelectedKey(pick ? keyOf(pick) : null);
 			setLoading(false);
+			void loadSummary();
 		}
 		load();
 	}, []);
@@ -105,11 +152,33 @@ export function AttendanceList() {
 						meetingDate={selected.meetingDate}
 						initialInPerson={selected.inPersonCount}
 						initialZoom={selected.zoomCount}
-						onSaved={(counts) =>
-							setRows((all) => all.map((m) => (keyOf(m) === keyOf(selected) ? { ...m, ...counts } : m)))
-						}
+						onSaved={(counts) => {
+							setRows((all) => all.map((m) => (keyOf(m) === keyOf(selected) ? { ...m, ...counts } : m)));
+							void loadSummary();
+						}}
 					/>
 				</Card>
+			)}
+
+			{months.length > 0 && (
+				<section>
+					<SectionLabel>Promedio mensual</SectionLabel>
+					<List>
+						{[...months].reverse().map((m) => (
+							<div key={m.month} className="px-4 py-3">
+								<p className="mb-2 text-sm font-semibold text-ink">{monthName(m.month)}</p>
+								<div className="grid grid-cols-2 gap-4">
+									<StatCell label="Entre semana" stat={m.midweek} />
+									<StatCell label="Fin de semana" stat={m.weekend} />
+								</div>
+							</div>
+						))}
+					</List>
+					<p className="mt-2 px-1 text-xs text-ink-soft">
+						Promedio de presentes en el salón más conectados por Zoom, por reunión, entre las reuniones con asistencia registrada de cada mes
+						(una reunión cuenta en el mes en que se celebra).
+					</p>
+				</section>
 			)}
 
 			{rows.length > 0 && (

@@ -11,6 +11,8 @@ import { parseWeekPrograms } from "@/lib/mwb/parseProgram";
 import { programRows, ROWS_PER_INSERT } from "@/lib/mwb/programRows";
 import { MIDWEEK_FIXED_SECTIONS } from "@/lib/rbac/roles";
 import { getDefaultWatchtowerConductorId } from "@/lib/weekend/defaults";
+import { ensureSongsCatalog } from "@/lib/songs/catalog";
+import { importWatchtowerForWeeks } from "@/lib/weekend/watchtower";
 
 /** Hora de Nicaragua (UTC−6, sin horario de verano). */
 const NICARAGUA_OFFSET_HOURS = -6;
@@ -177,6 +179,7 @@ export async function runDailyJob(db: Database, now = new Date(), only?: "progra
 	};
 
 	if (!only || only === "programs") {
+		await ensureSongsCatalog(db);
 		const local = new Date(now.getTime() + NICARAGUA_OFFSET_HOURS * 3_600_000);
 		const year = local.getUTCFullYear();
 		const month = local.getUTCMonth();
@@ -193,6 +196,8 @@ export async function runDailyJob(db: Database, now = new Date(), only?: "progra
 			}
 			try {
 				result.weekend.created += await ensureWeekend(db, mondays);
+				// Estudio de La Atalaya (título y canciones) de JW.ORG para las que aún no lo tengan.
+				await importWatchtowerForWeeks(db, mondays);
 			} catch (error) {
 				console.error("daily_weekend_failed", error);
 			}

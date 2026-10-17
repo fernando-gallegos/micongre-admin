@@ -10,6 +10,7 @@ import { InlineLoader } from "@/components/ui/Spinner";
 import { APPOINTMENT_LABELS } from "@/lib/appointmentLabels";
 import { printBulkTables } from "@/lib/publishers/bulkPdf";
 import { SERVICE_COMMITTEE_APPOINTMENTS } from "@/lib/rbac/roles";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 interface Person {
 	id: string;
@@ -70,6 +71,7 @@ export function BulkAssign() {
 	// Valor deseado por cruce persona|elemento, solo donde difiere de lo vigente.
 	const [privEdits, setPrivEdits] = useState<Record<string, boolean>>({});
 	const [apptEdits, setApptEdits] = useState<Record<string, boolean>>({});
+	useUnsavedChanges(Object.keys(privEdits).length > 0 || Object.keys(apptEdits).length > 0);
 	const [confirming, setConfirming] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [result, setResult] = useState<Result | null>(null);

@@ -16,6 +16,12 @@ export const weekendMeetings = sqliteTable(
 		watchtowerConductorId: text("watchtower_conductor_id").references(() => users.id),
 		watchtowerReaderId: text("watchtower_reader_id").references(() => users.id),
 		prayerUserId: text("prayer_user_id").references(() => users.id),
+		// Canciones de la reunión (números del catálogo `songs`): la de La Atalaya y la final.
+		// 1 = la reunión empieza con La Atalaya y el discurso público va después.
+		watchtowerFirst: integer("watchtower_first", { mode: "boolean" }).notNull().default(false),
+		watchtowerTitle: text("watchtower_title"),
+		watchtowerSongNumber: integer("watchtower_song_number"),
+		closingSongNumber: integer("closing_song_number"),
 		status: text("status", { enum: ["scheduled", "cancelled"] }).notNull().default("scheduled"),
 		notes: text("notes"),
 	},

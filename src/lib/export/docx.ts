@@ -10,14 +10,17 @@ import {
 	PageOrientation,
 	Paragraph,
 	ShadingType,
+	Tab,
+	TabStopType,
 	Table,
 	TableCell,
 	TableRow,
 	TextRun,
+	UnderlineType,
 	WidthType,
 } from "docx";
 import { getReportTheme, type ReportTheme } from "./themes";
-import type { ReportBlock, ReportDoc, ReportTable } from "./types";
+import type { NativeLine, ReportBlock, ReportDoc, ReportTable } from "./types";
 
 const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } as const;
 
@@ -175,6 +178,109 @@ function tableBlock(tbl: ReportTable, theme: ReportTheme, t: ReturnType<typeof m
 	return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
 }
 
+const NATIVE_GRAY = "#575A5D";
+const NATIVE_TAB = 10000;
+
+/** Hoja oficial (S-140, S-89) como texto de Word editable: párrafos y una tabla sin bordes para las filas del programa. */
+function nativeBlocks(lines: NativeLine[], t: ReturnType<typeof makeText>): (Paragraph | Table)[] {
+	const out: (Paragraph | Table)[] = [];
+	const none = { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER };
+	let group: NativeLine[] = [];
+
+	const flush = () => {
+		if (group.length === 0) return;
+		const hasAux = group.some((l) => (l.k === "row" && l.aux) || (l.k === "bar" && l.cols));
+		const widths = hasAux ? [8, 44, 24, 24] : [8, 62, 30];
+		const span = widths.length;
+		const cell = (children: Paragraph[], w: number, o: { fill?: string; columnSpan?: number } = {}) =>
+			new TableCell({
+				borders: none,
+				width: { size: w, type: WidthType.PERCENTAGE },
+				columnSpan: o.columnSpan,
+				shading: o.fill ? { type: ShadingType.CLEAR, fill: hex(o.fill), color: "auto" } : undefined,
+				margins: { top: 40, bottom: 40, left: 80, right: 80 },
+				children,
+			});
+		const para = (value: string, o: { bold?: boolean; size?: number; color?: string; right?: boolean } = {}) =>
+			new Paragraph({ alignment: o.right ? AlignmentType.RIGHT : AlignmentType.LEFT, children: [t(value, { bold: o.bold, size: o.size ?? 21, color: o.color ?? NATIVE_GRAY })] });
+		const rows = group.map((l) => {
+			if (l.k === "bar") {
+				if (l.cols && hasAux) {
+					return new TableRow({
+						cantSplit: true,
+						children: [
+							cell([para(l.label, { bold: true, color: "#FFFFFF" })], widths[0] + widths[1], { fill: l.color, columnSpan: 2 }),
+							cell([para(l.cols[0] ?? "", { size: 18, color: "#FFFFFF", right: true })], widths[2], { fill: l.color }),
+							cell([para(l.cols[1] ?? "", { size: 18, color: "#FFFFFF", right: true })], widths[3], { fill: l.color }),
+						],
+					});
+				}
+				return new TableRow({ cantSplit: true, children: [cell([para(l.label, { bold: true, color: "#FFFFFF" })], 100, { fill: l.color, columnSpan: span })] });
+			}
+			const row = l as Extract<NativeLine, { k: "row" }>;
+			const main = [para(row.main ?? "", { right: true })];
+			if (row.role) main.push(para(row.role, { size: 14, color: "#808080", right: true }));
+			const cells = [cell([para(row.time ?? "", { size: 18, color: "#808080" })], widths[0]), cell([para(row.title, { bold: row.bold }), ...(row.sub ?? []).map((line) => para(line))], widths[1])];
+			if (hasAux) cells.push(cell([para(row.aux ?? "", { right: true })], widths[2]));
+			cells.push(cell(main, widths[hasAux ? 3 : 2]));
+			return new TableRow({ cantSplit: true, children: cells });
+		});
+		out.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }));
+		group = [];
+	};
+
+	for (const l of lines) {
+		if (l.k === "row" || l.k === "bar") {
+			group.push(l);
+			continue;
+		}
+		flush();
+		switch (l.k) {
+			case "head":
+				out.push(
+					new Paragraph({
+						tabStops: [{ type: TabStopType.RIGHT, position: NATIVE_TAB }],
+						spacing: { after: 160 },
+						border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: hex(NATIVE_GRAY), space: 4 } },
+						children: [new TextRun({ children: [l.left, new Tab(), l.right], bold: true, size: 28, color: hex(NATIVE_GRAY), font: "Arial" })],
+					}),
+				);
+				break;
+			case "week":
+				out.push(new Paragraph({ spacing: { before: 160, after: 80 }, children: [t(l.text, { bold: true, size: 25, color: NATIVE_GRAY })] }));
+				break;
+			case "kv":
+				out.push(new Paragraph({ spacing: { after: 100 }, children: [t(l.label + " ", { bold: true, size: 22, color: NATIVE_GRAY }), t(l.value, { size: 22, color: NATIVE_GRAY })] }));
+				break;
+			case "rule":
+				out.push(new Paragraph({ spacing: { before: 200, after: 200 }, border: { bottom: { style: BorderStyle.DASHED, size: 6, color: "C9C9C9", space: 1 } }, children: [] }));
+				break;
+			case "title":
+				out.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [t(l.text, { bold: true, size: 30, color: "#111111" })] }));
+				break;
+			case "field":
+				out.push(
+					new Paragraph({
+						spacing: { before: 200 },
+						children: [
+							t(l.label + " ", { bold: true, size: 26, color: "#111111" }),
+							new TextRun({ text: " " + (l.value || "                              ") + " ", font: "Arial", size: 24, underline: { type: UnderlineType.DOTTED, color: "111111" } }),
+						],
+					}),
+				);
+				break;
+			case "check":
+				out.push(new Paragraph({ indent: { left: 500 }, spacing: { before: 60 }, children: [t((l.on ? "☒" : "☐") + "  " + l.label, { size: 24, color: "#111111" })] }));
+				break;
+			case "text":
+				out.push(new Paragraph({ spacing: { before: 160 }, children: [t(l.text, { bold: l.bold, italics: l.italic, size: (l.size ?? 11) * 2, color: "#111111" })] }));
+				break;
+		}
+	}
+	flush();
+	return out;
+}
+
 function blocks(doc: ReportDoc, theme: ReportTheme): (Paragraph | Table)[] {
 	const t = makeText(theme);
 	const themed = theme.id !== "plain";
@@ -258,6 +364,9 @@ function blocks(doc: ReportDoc, theme: ReportTheme): (Paragraph | Table)[] {
 					}),
 				);
 				if (b.caption) out.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t(b.caption, { size: 18, color: theme.muted })] }));
+				break;
+			case "svg":
+				if (b.native) out.push(...nativeBlocks(b.native, t));
 				break;
 			case "pageBreak":
 				out.push(new Paragraph({ pageBreakBefore: true, children: [] }));

@@ -7,6 +7,7 @@ import { TERRITORY_KIND_LABEL, type TerritoryKind, type TerritoryMapData } from 
 import { MapDialog, MapHeader } from "./MapDialog";
 import { TerritoryMap } from "./TerritoryMap";
 import { Spinner } from "@/components/ui/Spinner";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 interface Detail {
 	number: string;
@@ -34,6 +35,7 @@ export function TerritoryMapEditor({
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const latest = useRef<TerritoryMapData | null>(null);
+	useUnsavedChanges(dirty);
 
 	useEffect(() => {
 		let cancelled = false;

@@ -12,6 +12,7 @@ import { fetchMwbEpub, MwbFetchError } from "@/lib/mwb/fetchEpub";
 import { parseWeekPrograms } from "@/lib/mwb/parseProgram";
 import { programRows, ROWS_PER_INSERT, type ProgramRow } from "@/lib/mwb/programRows";
 import { importMidweekProgramSchema } from "@/lib/validation/midweek";
+import { ensureSongsCatalog } from "@/lib/songs/catalog";
 
 type WeekAction = "created" | "replaced" | "updated" | "not_found";
 
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
 		}
 		const { weekStart } = parsed.data;
 		const weekStarts = weekStartsOfMonth(weekStart);
+		// Las canciones de la guía se guardan por número; el título sale del catálogo (se baja solo si falta).
+		await ensureSongsCatalog(getDb());
 
 		let epubBytes: ArrayBuffer;
 		try {

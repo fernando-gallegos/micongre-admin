@@ -25,16 +25,24 @@ async function listSpeakers(db: ReturnType<typeof getDb>) {
 			.from(speakers)
 			.leftJoin(users, eq(users.id, speakers.userId))
 			.leftJoin(speakerCongregations, eq(speakerCongregations.id, speakers.congregationId)),
-		db.select({ speakerId: speakerOutlines.speakerId, outlineId: speakerOutlines.outlineId }).from(speakerOutlines),
+		db
+			.select({ speakerId: speakerOutlines.speakerId, outlineId: speakerOutlines.outlineId, songNumber: speakerOutlines.songNumber })
+			.from(speakerOutlines),
 	]);
 
 	const outlineIdsBySpeaker = new Map<string, string[]>();
+	const songsBySpeaker = new Map<string, Record<string, number>>();
 	for (const row of outlineRows) {
 		const list = outlineIdsBySpeaker.get(row.speakerId) ?? [];
 		list.push(row.outlineId);
 		outlineIdsBySpeaker.set(row.speakerId, list);
+		if (row.songNumber != null) {
+			const map = songsBySpeaker.get(row.speakerId) ?? {};
+			map[row.outlineId] = row.songNumber;
+			songsBySpeaker.set(row.speakerId, map);
+		}
 	}
-	return rows.map((row) => ({ ...row, outlineIds: outlineIdsBySpeaker.get(row.id) ?? [] }));
+	return rows.map((row) => ({ ...row, outlineIds: outlineIdsBySpeaker.get(row.id) ?? [], outlineSongs: songsBySpeaker.get(row.id) ?? {} }));
 }
 
 export async function GET(request: Request) {
@@ -84,7 +92,7 @@ export async function POST(request: Request) {
 			return NextResponse.json({ error: "invalid_body", details: parsed.error.flatten() }, { status: 400 });
 		}
 
-		const { outlineIds, ...data } = parsed.data;
+		const { outlineIds, outlineSongs, ...data } = parsed.data;
 		const db = getDb();
 
 		if (data.kind === "local") {
@@ -97,7 +105,9 @@ export async function POST(request: Request) {
 
 		const [speaker] = await db.insert(speakers).values(data).returning();
 		if (outlineIds.length > 0) {
-			await db.insert(speakerOutlines).values(outlineIds.map((outlineId) => ({ speakerId: speaker.id, outlineId })));
+			await db
+				.insert(speakerOutlines)
+				.values(outlineIds.map((outlineId) => ({ speakerId: speaker.id, outlineId, songNumber: outlineSongs?.[outlineId] ?? null })));
 		}
 
 		return NextResponse.json({ speaker }, { status: 201 });
