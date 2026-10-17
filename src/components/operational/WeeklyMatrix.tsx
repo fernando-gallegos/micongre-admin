@@ -9,6 +9,7 @@ import { Input, Select } from "@/components/ui/Input";
 import type { EligibleUser } from "@/lib/rbac/eligibility";
 import { PRIVILEGE_IDS } from "@/lib/rbac/roles";
 import { TaskCell, type OperationalSlot } from "./TaskCell";
+import { AutoAssignButton } from "@/components/assignments/AutoAssignButton";
 import { PageLoader } from "@/components/ui/Spinner";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
@@ -170,6 +171,14 @@ export function WeeklyMatrix({
 		<div className="flex flex-col gap-5">
 			<div className="flex flex-wrap items-center justify-end gap-2">
 				{sentMessage && <span className="mr-auto text-xs text-ink-soft">{sentMessage}</span>}
+				<AutoAssignButton
+					module={meetingType === "midweek" ? "operational-midweek" : "operational-weekend"}
+					meetingId={meetingId}
+					onApply={(picks) => {
+						for (const [key, userId] of Object.entries(picks)) if (key.startsWith("o:")) assignSlot(key.slice(2), userId);
+					}}
+					disabled={dirty}
+				/>
 				<Button onClick={saveAll} disabled={!dirty || saving}>
 					<Save size={16} />
 					{saving ? "Guardando..." : "Guardar"}

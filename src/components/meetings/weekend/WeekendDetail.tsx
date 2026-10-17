@@ -9,6 +9,7 @@ import { BrotherSelector } from "@/components/shared/BrotherSelector";
 import { SendAssignmentsButton } from "@/components/shared/SendAssignmentsButton";
 import { SongSelect, useSongTitles } from "@/components/shared/SongSelect";
 import { CopyMessageButton } from "./CopyMessageButton";
+import { AutoAssignButton } from "@/components/assignments/AutoAssignButton";
 import { songLabel } from "@/lib/songs/label";
 import { SpeakerPicker, type AssignableSpeaker, type OutlineOption } from "./SpeakerPicker";
 import { formatLongDate } from "@/lib/dateFormat";
@@ -92,6 +93,19 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 		setDraft((d) => ({ ...d, ...patchBody }));
 	}
 
+	/** Vuelca la propuesta de «Asignar automáticamente» al borrador; se guarda con «Guardar». */
+	function applyAutoAssign(picks: Record<string, string>) {
+		const fields: Record<string, keyof Meeting> = {
+			chairman: "chairmanUserId",
+			prayer: "prayerUserId",
+			watchtowerConductor: "watchtowerConductorId",
+			watchtowerReader: "watchtowerReaderId",
+		};
+		const next: Partial<Meeting> = {};
+		for (const [key, userId] of Object.entries(picks)) if (fields[key]) (next as Record<string, unknown>)[fields[key]] = userId;
+		patch(next);
+	}
+
 	async function handleSave() {
 		setError(null);
 		setSaving(true);
@@ -143,6 +157,7 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 				</div>
 				<div className="flex flex-wrap items-center gap-1">
 					{sendMessage && <span className="text-xs text-ink-soft">{sendMessage}</span>}
+					<AutoAssignButton module="weekend" meetingId={meetingId} onApply={applyAutoAssign} disabled={dirty} />
 					<SendAssignmentsButton endpoint={`/api/weekend/${meetingId}/notify`} onMessage={setSendMessage} />
 					<Button onClick={handleSave} disabled={!dirty || saving}>
 						<Save size={16} />

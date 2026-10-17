@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { IconButton, List, SectionLabel } from "@/components/ui/Layout";
 import { BrotherSelector } from "@/components/shared/BrotherSelector";
 import { SongSelect } from "@/components/shared/SongSelect";
+import { AutoAssignButton } from "@/components/assignments/AutoAssignButton";
 import { SendAssignmentsButton } from "@/components/shared/SendAssignmentsButton";
 import { formatLongDate } from "@/lib/dateFormat";
 import type { EligibleUser } from "@/lib/rbac/eligibility";
@@ -147,6 +148,19 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 		setEditingTitleId(null);
 	}
 
+	/** Vuelca la propuesta de «Asignar automáticamente» al borrador (clave de casilla → persona); se guarda con «Guardar». */
+	function applyAutoAssign(picks: Record<string, string>) {
+		for (const [key, userId] of Object.entries(picks)) {
+			if (key === "chairman") patchMeeting({ chairmanUserId: userId });
+			else if (key === "openingPrayer") patchMeeting({ openingPrayerUserId: userId });
+			else {
+				const [, assignmentId, role] = key.split(":");
+				if (role === "main") patchAssignment(assignmentId, { mainAssigneeId: userId });
+				else if (role === "assistant") patchAssignment(assignmentId, { assistantAssigneeId: userId });
+			}
+		}
+	}
+
 	async function handleSave() {
 		setSaving(true);
 		const failed: Record<string, string> = {};
@@ -257,6 +271,7 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 				<h2 className="font-display text-[22px] font-medium leading-tight text-ink">{formatLongDate(meeting.meetingDate)}</h2>
 				<div className="flex flex-wrap items-center gap-1">
 					{sendMessage && <span className="text-xs text-ink-soft">{sendMessage}</span>}
+					<AutoAssignButton module="midweek" meetingId={meetingId} onApply={applyAutoAssign} disabled={dirty} />
 					<IconButton label="Ver notificaciones S-89" icon={FileText} href={`/meetings/midweek/${meetingId}/notify`} />
 					<SendAssignmentsButton endpoint={`/api/midweek/${meetingId}/notify`} onMessage={setSendMessage} />
 					<Button onClick={handleSave} disabled={!dirty || saving}>
