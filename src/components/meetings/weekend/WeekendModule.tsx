@@ -6,6 +6,7 @@ import { WeekendList } from "./WeekendList";
 import { SpeakersList } from "./SpeakersList";
 import { TalkOutlinesList } from "./TalkOutlinesList";
 import { WeekendTabs, type WeekendTab } from "./WeekendTabs";
+import { MessageTemplates } from "./MessageTemplates";
 
 export function WeekendModule() {
 	const [tab, setTab] = useState<WeekendTab>("planner");
@@ -24,6 +25,9 @@ export function WeekendModule() {
 			</div>
 			<div hidden={tab !== "history"} className={tab === "history" ? "contents" : "hidden"}>
 				<TalkOutlinesList />
+			</div>
+			<div hidden={tab !== "message"} className={tab === "message" ? "contents" : "hidden"}>
+				<MessageTemplates />
 			</div>
 		</div>
 	);

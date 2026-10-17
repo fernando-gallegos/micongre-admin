@@ -11,14 +11,30 @@ export function useStoredWeek(key: string): [string, (weekStart: string) => void
 	const storageKey = `mc.week.${key}`;
 	const [weekStart, setWeek] = useState(() => toISODate(mondayOf(new Date())));
 
-	// Se lee después de montar (no en el render inicial) para que el servidor y el cliente pinten lo mismo.
+	// Se lee después de montar (no en el render inicial) para que el servidor y el cliente pinten lo mismo. Si no hay nada guardado, se queda
+	// con la semana actual. También se vuelve a leer al volver a la pestaña/ventana y cuando otra pestaña del navegador cambia la semana.
 	useEffect(() => {
-		try {
-			const saved = window.localStorage.getItem(storageKey);
-			if (saved && /^d{4}-d{2}-d{2}$/.test(saved)) setWeek(toISODate(mondayOf(new Date(`${saved}T00:00:00Z`))));
-		} catch {
-			// sin almacenamiento disponible: se queda con la semana actual
-		}
+		const read = () => {
+			try {
+				const saved = window.localStorage.getItem(storageKey);
+				if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) setWeek(toISODate(mondayOf(new Date(`${saved}T00:00:00Z`))));
+			} catch {
+				// sin almacenamiento disponible: se queda con la semana actual
+			}
+		};
+		read();
+		const onStorage = (e: StorageEvent) => {
+			if (e.key === storageKey) read();
+		};
+		const onVisible = () => {
+			if (document.visibilityState === "visible") read();
+		};
+		window.addEventListener("storage", onStorage);
+		document.addEventListener("visibilitychange", onVisible);
+		return () => {
+			window.removeEventListener("storage", onStorage);
+			document.removeEventListener("visibilitychange", onVisible);
+		};
 	}, [storageKey]);
 
 	const set = useCallback(

@@ -28,6 +28,15 @@ export const weekendMeetings = sqliteTable(
 	(t) => [uniqueIndex("weekend_date_idx").on(t.meetingDate)],
 );
 
+// Plantillas del mensaje para oradores (copiar y pegar en cualquier mensajería): `incoming` = invitado que llega, `outgoing` = local que sale.
+export const weekendMessageTemplates = sqliteTable("weekend_message_templates", {
+	kind: text("kind", { enum: ["incoming", "outgoing"] }).primaryKey(),
+	body: text("body").notNull(),
+	updatedAt: integer("updated_at", { mode: "timestamp" })
+		.notNull()
+		.default(sql`(unixepoch())`),
+});
+
 // Discursos públicos que oradores locales dan en OTRA congregación (no la
 // nuestra) — a diferencia de weekend_meetings, que es nuestra propia reunión,
 // aquí puede haber más de uno en la misma fecha (varios oradores enviados el

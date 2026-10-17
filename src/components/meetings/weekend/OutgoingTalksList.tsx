@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { CongregationPicker, upsertCongregation, type Congregation } from "./CongregationPicker";
 import { formatShortDate, formatTime12h } from "@/lib/dateFormat";
 import { PageLoader } from "@/components/ui/Spinner";
+import { CopyMessageButton } from "./CopyMessageButton";
 
 interface OutgoingTalk {
 	id: string;
@@ -78,16 +79,20 @@ export function OutgoingTalksList({ weekStart, weekEnd }: { weekStart: string; w
 			{talks.length > 0 && (
 				<List>
 					{talks.map((talk) => (
-						<ListRow
-							key={talk.id}
-							onClick={() => setEditing(talk)}
-							title={
-								<span className="capitalize">
-									{formatShortDate(talk.meetingDate)} · {formatTime12h(talk.meetingTime)}
-								</span>
-							}
-							subtitle={`${talk.speakerName} → ${talk.congregationName} · ${talk.talkOutlineNumber}. ${talk.talkOutlineTitle}`}
-						/>
+						<div key={talk.id} className="flex items-center gap-1 pr-2">
+							<div className="min-w-0 flex-1">
+								<ListRow
+									onClick={() => setEditing(talk)}
+									title={
+										<span className="capitalize">
+											{formatShortDate(talk.meetingDate)} · {formatTime12h(talk.meetingTime)}
+										</span>
+									}
+									subtitle={`${talk.speakerName} → ${talk.congregationName} · ${talk.talkOutlineNumber}. ${talk.talkOutlineTitle}`}
+								/>
+							</div>
+							<CopyMessageButton kind="outgoing" id={talk.id} />
+						</div>
 					))}
 				</List>
 			)}

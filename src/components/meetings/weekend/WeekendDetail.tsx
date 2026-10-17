@@ -8,6 +8,7 @@ import { Input, Select } from "@/components/ui/Input";
 import { BrotherSelector } from "@/components/shared/BrotherSelector";
 import { SendAssignmentsButton } from "@/components/shared/SendAssignmentsButton";
 import { SongSelect, useSongTitles } from "@/components/shared/SongSelect";
+import { CopyMessageButton } from "./CopyMessageButton";
 import { songLabel } from "@/lib/songs/label";
 import { SpeakerPicker, type AssignableSpeaker, type OutlineOption } from "./SpeakerPicker";
 import { formatLongDate } from "@/lib/dateFormat";
@@ -232,6 +233,12 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 						onChangeOutline={(talkOutlineId) => patch({ talkOutlineId })}
 					/>
 				</div>
+				{meeting.speakerId && speakers.find((s) => s.id === meeting.speakerId)?.kind === "visiting" && (
+					<div className="flex items-center gap-2 text-sm text-ink-soft">
+						<CopyMessageButton kind="incoming" id={meetingId} disabled={dirty} />
+						{dirty ? "Guarda los cambios para copiar el mensaje del orador invitado." : "Copiar mensaje para el orador invitado"}
+					</div>
+				)}
 				{talkSong != null && (
 					<p className="text-sm text-ink-soft">
 						Canción del discurso (la del orador para este bosquejo; va {meeting.watchtowerFirst ? "al terminar el discurso" : "al empezar la reunión"}): {songLabel(talkSong, songTitles)}
