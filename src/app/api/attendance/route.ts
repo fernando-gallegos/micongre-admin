@@ -6,6 +6,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { assertCanRecordAttendance } from "@/lib/rbac/guards";
 import { getSession } from "@/lib/auth/session";
 import { upsertAttendanceSchema } from "@/lib/validation/reports";
+import { rememberOperation, replayIfProcessed } from "@/lib/http/idempotency";
 
 export async function GET(request: Request) {
 	try {
@@ -59,7 +60,23 @@ export async function POST(request: Request) {
 		}
 
 		const db = getDb();
-		const values = { ...parsed.data, recordedByUserId: session.userId, recordedAt: new Date() };
+		const replay = await replayIfProcessed(db, request, session.userId);
+		if (replay) return replay;
+
+		// Desde la cola sin internet: si alguien registró otra cifra mientras tanto, no se pisa — la app lo guarda y avisa.
+		const { baseVersion, ...attendance } = parsed.data;
+		if (baseVersion !== undefined) {
+			const [current] = await db
+				.select()
+				.from(meetingAttendance)
+				.where(and(eq(meetingAttendance.meetingType, attendance.meetingType), eq(meetingAttendance.meetingId, attendance.meetingId)))
+				.limit(1);
+			const currentVersion = current ? Math.floor(current.recordedAt.getTime() / 1000) : null;
+			if (currentVersion !== baseVersion) return NextResponse.json({ error: "conflict", current: current ?? null }, { status: 409 });
+		}
+
+		const recordedAt = new Date();
+		const values = { ...attendance, recordedByUserId: session.userId, recordedAt };
 
 		await db
 			.insert(meetingAttendance)
@@ -69,7 +86,8 @@ export async function POST(request: Request) {
 				set: values,
 			});
 
-		return NextResponse.json({ ok: true });
+		await rememberOperation(db, request, session.userId);
+		return NextResponse.json({ ok: true, version: Math.floor(recordedAt.getTime() / 1000) });
 	} catch (error) {
 		return errorResponse(error);
 	}

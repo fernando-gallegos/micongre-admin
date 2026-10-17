@@ -9,6 +9,7 @@ import { getPioneerAppointmentType } from "@/lib/rbac/eligibility";
 import { assertCanManageReport, getReportsGroupIds } from "@/lib/rbac/guards";
 import { notHiddenAdmin } from "@/lib/rbac/visibility";
 import { upsertS4ReportSchema } from "@/lib/validation/reports";
+import { rememberOperation, replayIfProcessed } from "@/lib/http/idempotency";
 
 export async function GET(request: Request) {
 	try {
@@ -81,18 +82,33 @@ export async function POST(request: Request) {
 		}
 
 		const db = getDb();
+		const replay = await replayIfProcessed(db, request, session.userId);
+		if (replay) return replay;
 		await assertCanManageReport(db, session, parsed.data.userId);
+
+		// Desde la cola sin internet: si el informe cambió mientras tanto, no se pisa — la app lo guarda y avisa.
+		const { baseVersion, ...report } = parsed.data;
+		if (baseVersion !== undefined) {
+			const [current] = await db
+				.select()
+				.from(serviceReports)
+				.where(and(eq(serviceReports.userId, report.userId), eq(serviceReports.periodYear, report.periodYear), eq(serviceReports.periodMonth, report.periodMonth)))
+				.limit(1);
+			const currentVersion = current ? Math.floor(current.submittedAt.getTime() / 1000) : null;
+			if (currentVersion !== baseVersion) return NextResponse.json({ error: "conflict", current: current ?? null }, { status: 409 });
+		}
 
 		const pioneerType = await getPioneerAppointmentType(db, parsed.data.userId);
 
+		const submittedAt = new Date();
 		const values = {
-			...parsed.data,
+			...report,
 			isAuxiliaryPioneerThisMonth: pioneerType === "auxiliary_pioneer",
 			hours: pioneerType ? (parsed.data.hours ?? null) : null,
 			projectHours:
 				pioneerType === "regular_pioneer" ? clampProjectHours(parsed.data.hours, parsed.data.projectHours) : null,
 			enteredByUserId: session.userId,
-			submittedAt: new Date(),
+			submittedAt,
 			status: "submitted" as const,
 		};
 
@@ -104,7 +120,8 @@ export async function POST(request: Request) {
 				set: values,
 			});
 
-		return NextResponse.json({ ok: true });
+		await rememberOperation(db, request, session.userId);
+		return NextResponse.json({ ok: true, version: Math.floor(submittedAt.getTime() / 1000) });
 	} catch (error) {
 		return errorResponse(error);
 	}

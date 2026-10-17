@@ -11,6 +11,8 @@ export const upsertS4ReportSchema = z.object({
 	bibleStudiesCount: z.number().int().nonnegative().default(0),
 	creditHoursNote: z.string().nullable().optional(),
 	comments: z.string().nullable().optional(),
+	/** Solo desde la cola sin internet de la app: versión del informe (segundos) sobre la que se editó; null = no había informe. Si el servidor tiene otra, hay choque (409). */
+	baseVersion: z.number().int().nullable().optional(),
 });
 
 export const upsertAttendanceSchema = z.object({
@@ -19,6 +21,8 @@ export const upsertAttendanceSchema = z.object({
 	meetingDate: z.string().min(1),
 	inPersonCount: z.number().int().nonnegative(),
 	zoomCount: z.number().int().nonnegative().default(0),
+	/** Solo desde la cola sin internet de la app: versión del registro (segundos) sobre la que se editó; null = no había registro. */
+	baseVersion: z.number().int().nullable().optional(),
 });
 
 // Edición retroactiva desde la S-21: a diferencia del envío S-4 (que deduce

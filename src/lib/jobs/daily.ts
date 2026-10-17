@@ -13,6 +13,7 @@ import { MIDWEEK_FIXED_SECTIONS } from "@/lib/rbac/roles";
 import { getDefaultWatchtowerConductorId } from "@/lib/weekend/defaults";
 import { ensureSongsCatalog } from "@/lib/songs/catalog";
 import { importWatchtowerForWeeks } from "@/lib/weekend/watchtower";
+import { purgeOldOperations } from "@/lib/http/idempotency";
 
 /** Hora de Nicaragua (UTC−6, sin horario de verano). */
 const NICARAGUA_OFFSET_HOURS = -6;
@@ -204,6 +205,13 @@ export async function runDailyJob(db: Database, now = new Date(), only?: "progra
 		}
 	}
 
+	if (!only) {
+		try {
+			await purgeOldOperations(db);
+		} catch (error) {
+			console.error("daily_purge_operations_failed", error);
+		}
+	}
 	if (!only || only === "congregations") {
 		try {
 			await syncCongregations(db, result.congregations);

@@ -20,3 +20,4 @@ export * from "./pastoralCare";
 export * from "./notifications";
 export * from "./push";
 export * from "./animations";
+export * from "./operations";
