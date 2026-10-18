@@ -48,7 +48,8 @@ export interface SessionView {
 	note: string | null;
 	kind: "general" | "public_preaching";
 	notifiedAt: string | null;
-	territories: { id: string; number: string; name: string | null }[];
+	/** `assigneeName`: quien tiene el territorio asignado ahora (para el widget de predicación de la app). */
+	territories: { id: string; number: string; name: string | null; assigneeName: string | null }[];
 	targets: { congregation: boolean; groups: { id: string; name: string; color: string | null }[]; users: { id: string; fullName: string }[] };
 }
 
@@ -87,9 +88,11 @@ export async function listSessions(db: Database): Promise<SessionView[]> {
 		await Promise.all(
 			chunked(ids).map((part) =>
 				db
-					.select({ sessionId: preachingSessionTerritories.sessionId, id: territories.id, number: territories.number, name: territories.name })
+					.select({ sessionId: preachingSessionTerritories.sessionId, id: territories.id, number: territories.number, name: territories.name, assigneeName: users.fullName })
 					.from(preachingSessionTerritories)
 					.innerJoin(territories, eq(territories.id, preachingSessionTerritories.territoryId))
+					.leftJoin(territoryAssignments, and(eq(territoryAssignments.territoryId, territories.id), eq(territoryAssignments.status, "assigned")))
+					.leftJoin(users, eq(users.id, territoryAssignments.assigneeUserId))
 					.where(inArray(preachingSessionTerritories.sessionId, part)),
 			),
 		)
@@ -126,7 +129,7 @@ export async function listSessions(db: Database): Promise<SessionView[]> {
 			notifiedAt: s.notifiedAt ? s.notifiedAt.toISOString() : null,
 			territories: territoryRows
 				.filter((t) => t.sessionId === s.id)
-				.map(({ id, number, name }) => ({ id, number, name }))
+				.map(({ id, number, name, assigneeName }) => ({ id, number, name, assigneeName: assigneeName ?? null }))
 				.sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true })),
 			targets: {
 				congregation: mine.some((t) => t.type === "congregation"),
