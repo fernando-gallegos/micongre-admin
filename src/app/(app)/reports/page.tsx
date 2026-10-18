@@ -14,7 +14,7 @@ export default async function ReportsPage() {
 	return (
 		<div className="flex flex-col gap-5">
 			<PageHeader title="Informes" />
-			{canRecordAttendance && <ReportsTabs active="service" />}
+			<ReportsTabs active="service" showAttendance={canRecordAttendance} />
 			<S4CollectionTable />
 		</div>
 	);

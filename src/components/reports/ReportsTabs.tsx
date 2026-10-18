@@ -3,21 +3,24 @@
 import { useRouter } from "next/navigation";
 import { Segmented } from "@/components/ui/Layout";
 
-type Tab = "service" | "attendance";
+type Tab = "service" | "groups" | "attendance";
 
-/** Pestañas Servicio / Asistencia de Informes: cada una es su propia ruta. */
-export function ReportsTabs({ active }: { active: Tab }) {
+const PATHS: Record<Tab, string> = { service: "/reports", groups: "/reports/groups", attendance: "/reports/attendance" };
+
+/** Pestañas Tarjetas / Grupos / Asistencia de Informes: cada una es su propia ruta (Asistencia solo para quien registra asistencia). */
+export function ReportsTabs({ active, showAttendance = true }: { active: Tab; showAttendance?: boolean }) {
 	const router = useRouter();
 	return (
 		<Segmented<Tab>
 			value={active}
 			onChange={(tab) => {
-				if (tab !== active) router.push(tab === "service" ? "/reports" : "/reports/attendance");
+				if (tab !== active) router.push(PATHS[tab]);
 			}}
 			label="Informes"
 			options={[
-				{ value: "service", label: "Servicio" },
-				{ value: "attendance", label: "Asistencia" },
+				{ value: "service", label: "Tarjetas" },
+				{ value: "groups", label: "Grupos" },
+				...(showAttendance ? [{ value: "attendance" as Tab, label: "Asistencia" }] : []),
 			]}
 		/>
 	);
