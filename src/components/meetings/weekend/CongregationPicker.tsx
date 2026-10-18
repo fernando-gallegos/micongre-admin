@@ -23,6 +23,7 @@ export const WEEKDAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "
 
 const ERRORS: Record<string, string> = {
 	invalid_url: "El enlace no es válido. Copia el enlace de «Compartir» de la congregación en JW.ORG.",
+	search_link: "Ese enlace es de una búsqueda, no de una congregación. Abre la congregación en JW.ORG, toca «Compartir» y pega aquí el enlace o el texto que se copia.",
 	not_found: "No se encontró la congregación en JW.ORG.",
 	unavailable: "No se pudo contactar a JW.ORG. Inténtalo de nuevo.",
 	name_conflict: "JW.ORG cambió el nombre a uno que ya existe en otra congregación.",
@@ -123,7 +124,7 @@ export function HubAddRow({ onSaved }: { onSaved: (c: Congregation) => void }) {
 						label="Nueva congregación"
 						value={url}
 						onChange={(e) => setUrl(e.target.value)}
-						placeholder="Pega el enlace de JW.ORG"
+						placeholder="Pega el enlace o el texto que copia JW.ORG"
 					/>
 				</div>
 				<Button type="button" variant="secondary" disabled={!url.trim() || busy} onClick={add}>

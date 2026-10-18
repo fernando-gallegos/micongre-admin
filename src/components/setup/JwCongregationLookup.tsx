@@ -17,6 +17,7 @@ export interface JwCongregationData {
 
 const ERRORS: Record<string, string> = {
 	invalid_url: "El enlace no es válido. Copia el enlace de «Compartir» de tu congregación en JW.ORG.",
+	search_link: "Ese enlace es de una búsqueda, no de una congregación. Abre la congregación en JW.ORG, toca «Compartir» y pega aquí el enlace o el texto que se copia.",
 	not_found: "No se encontró la congregación en JW.ORG.",
 	unavailable: "No se pudo contactar a JW.ORG. Inténtalo de nuevo (o llena los datos a mano).",
 	already_configured: "La aplicación ya fue configurada. Recarga la página.",
@@ -63,7 +64,7 @@ export function JwCongregationLookup({ onFound }: { onFound: (data: JwCongregati
 					<Globe size={15} /> Traer los datos desde JW.ORG <span className="text-xs font-normal text-ink-soft">(opcional)</span>
 				</h3>
 				<p className="mt-1 text-xs text-ink-soft">
-					Busca tu congregación en JW.ORG, copia su enlace (el de «Compartir») y pégalo aquí: llenamos el nombre, la
+					Busca tu congregación en JW.ORG, copia su enlace o el texto que ofrece «Compartir» y pégalo aquí: llenamos el nombre, la
 					dirección del Salón y los horarios de reunión. Luego puedes ajustar lo que haga falta.
 				</p>
 			</div>
@@ -73,7 +74,7 @@ export function JwCongregationLookup({ onFound }: { onFound: (data: JwCongregati
 						label="Enlace de tu congregación"
 						value={url}
 						onChange={(e) => setUrl(e.target.value)}
-						placeholder="Pega el enlace de JW.ORG"
+						placeholder="Pega el enlace o el texto que copia JW.ORG"
 						onKeyDown={(e) => {
 							if (e.key === "Enter" && url.trim() && !busy) {
 								e.preventDefault();

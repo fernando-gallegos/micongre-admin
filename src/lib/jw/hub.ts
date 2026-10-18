@@ -8,7 +8,7 @@ const HUB_HOST = "hub.jw.org";
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class JwHubError extends Error {
-	constructor(public code: "invalid_url" | "not_found" | "unavailable") {
+	constructor(public code: "invalid_url" | "search_link" | "not_found" | "unavailable") {
 		super(code);
 	}
 }
@@ -47,22 +47,39 @@ interface HubSearchResponse {
 	}[];
 }
 
+const HUB_URL_IN_TEXT = /https?:\/\/hub\.jw\.org\/[^\s"'<>]+/i;
+
 /**
- * Extrae los GUID de un enlace del Hub. Acepta tanto el enlace de "Compartir"
- * (`.../goto/entry-point/meetings?scope_id=…&eventId=…`) como la URL que ve el
- * navegador (`...?locationId=…&eventId=…`).
+ * El enlace del Hub dentro de lo que pegó la persona: puede ser solo el enlace, o el texto completo que copia JW.ORG desde el teléfono
+ * («Compartir»: nombre, horarios, dirección, coordenadas y, al final, el enlace con espacios o saltos de línea alrededor). Devuelve el enlace limpio.
+ */
+export function extractHubUrl(raw: string): string {
+	const match = HUB_URL_IN_TEXT.exec(raw);
+	if (!match) throw new JwHubError("invalid_url");
+	// Si el texto siguió pegado al enlace (p. ej. un punto o paréntesis al final), se recorta.
+	return match[0].replace(/[.,;:)\]}]+$/, "");
+}
+
+/**
+ * Extrae los GUID de un enlace del Hub. Acepta el enlace de "Compartir"
+ * (`.../goto/entry-point/meetings?scope_id=…&eventId=…`), la URL que ve el
+ * navegador (`...?locationId=…&eventId=…`) y el texto completo que copia JW.ORG
+ * con el enlace dentro. Un enlace de BÚSQUEDA (`.../meetings/es?q={"location":"…"}`, el que se
+ * copia desde la lista de resultados) no identifica una congregación: se avisa con `search_link`.
  */
 export function parseHubUrl(raw: string): { locationId: string; eventId: string | null } {
 	let url: URL;
 	try {
-		url = new URL(raw.trim());
-	} catch {
+		url = new URL(extractHubUrl(raw));
+	} catch (error) {
+		if (error instanceof JwHubError) throw error;
 		throw new JwHubError("invalid_url");
 	}
 	if (url.hostname !== HUB_HOST) throw new JwHubError("invalid_url");
 
 	const locationId = url.searchParams.get("scope_id") ?? url.searchParams.get("locationId");
 	const eventId = url.searchParams.get("eventId");
+	if (!locationId && url.searchParams.has("q")) throw new JwHubError("search_link");
 	if (!locationId || !GUID.test(locationId) || (eventId && !GUID.test(eventId))) {
 		throw new JwHubError("invalid_url");
 	}

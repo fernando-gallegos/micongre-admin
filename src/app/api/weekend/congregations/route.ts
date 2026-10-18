@@ -5,7 +5,7 @@ import { speakerCongregations } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { assertCanAccessWeekendModule } from "@/lib/rbac/guards";
-import { JwHubError, fetchHubCongregation, hubCongregationColumns, parseHubUrl } from "@/lib/jw/hub";
+import { JwHubError, extractHubUrl, fetchHubCongregation, hubCongregationColumns, parseHubUrl } from "@/lib/jw/hub";
 import { createSpeakerCongregationSchema, importSpeakerCongregationSchema } from "@/lib/validation/speakers";
 
 export async function GET(request: Request) {
@@ -42,8 +42,9 @@ export async function POST(request: Request) {
 		// le actualizan los datos; si no, se crea.
 		const imported = importSpeakerCongregationSchema.safeParse(body);
 		if (imported.success) {
-			const url = imported.data.url.trim();
-			const { locationId, eventId } = parseHubUrl(url);
+			// Puede venir el enlace solo o el texto completo que copia JW.ORG: se guarda solo el enlace limpio.
+			const { locationId, eventId } = parseHubUrl(imported.data.url);
+			const url = extractHubUrl(imported.data.url);
 			const hub = await fetchHubCongregation(locationId, eventId);
 			const columns = hubCongregationColumns(hub, url);
 
