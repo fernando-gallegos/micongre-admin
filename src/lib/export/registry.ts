@@ -3,6 +3,7 @@ import type { Session } from "@/lib/auth/session";
 import type { ReportDoc } from "./types";
 import { buildGroups } from "./builders/groups";
 import { buildInformes } from "./builders/informes";
+import { buildInformesGrupos } from "./builders/informesGrupos";
 import { buildMeetings } from "./builders/meetings";
 import { buildOperational } from "./builders/operational";
 import { buildOutgoing } from "./builders/outgoing";
@@ -32,6 +33,7 @@ export const REPORT_BUILDERS: Record<string, ReportBuilder> = {
 	"outgoing-talks": buildOutgoing,
 	s89: buildPrograms,
 	"reports-month": buildInformes,
+	"reports-groups": buildInformesGrupos,
 	s21: buildS21,
 	publishers: buildPeople,
 	groups: buildGroups,

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { ExportButton } from "@/components/export/ExportButton";
 import { Card } from "@/components/ui/Card";
 import { IconButton } from "@/components/ui/Layout";
 
@@ -75,7 +76,18 @@ export function GroupReportsTable() {
 				<span className="text-[15px] font-semibold text-ink">
 					{MONTH_NAMES[month - 1]} {year}
 				</span>
-				<IconButton label="Mes siguiente" icon={ChevronRight} onClick={() => shiftMonth(1)} />
+				<div className="flex items-center">
+					{!forbidden && (
+						<ExportButton
+							kind="reports-groups"
+							params={{ month: `${year}-${String(month).padStart(2, "0")}` }}
+							formats={["xlsx", "docx", "png"]}
+							label="Descargar informes por grupo"
+							title="Descargar informes por grupo"
+						/>
+					)}
+					<IconButton label="Mes siguiente" icon={ChevronRight} onClick={() => shiftMonth(1)} />
+				</div>
 			</div>
 
 			{forbidden && (
@@ -93,6 +105,9 @@ export function GroupReportsTable() {
 				const delivered = group.items.filter((i) => i.reportId).length;
 				const totalHours = group.items.reduce((sum, i) => sum + (i.hours ?? 0), 0);
 				const totalStudies = group.items.reduce((sum, i) => sum + (i.bibleStudiesCount ?? 0), 0);
+				const totalProject = group.items.reduce((sum, i) => sum + (i.projectHours ?? 0), 0);
+				// Horas de proyectos: solo cuentan los precursores regulares; la columna sale si el grupo tiene alguno (o ya hay horas guardadas).
+				const showProject = group.items.some((i) => i.pioneerType === "regular_pioneer" || (i.projectHours ?? 0) > 0);
 				return (
 					<section key={group.id ?? "none"} className="flex flex-col gap-2">
 						<div className="flex items-baseline justify-between px-1">
@@ -102,7 +117,7 @@ export function GroupReportsTable() {
 							</span>
 						</div>
 						<div className="overflow-x-auto rounded-2xl bg-surface">
-							<table className="w-full min-w-[560px] border-collapse">
+							<table className="w-full min-w-[600px] border-collapse">
 								<thead>
 									<tr className="border-b border-line">
 										<th className={`${TH} text-left`}>Nombre</th>
@@ -110,6 +125,7 @@ export function GroupReportsTable() {
 										<th className={TH}>Cursos</th>
 										<th className={TH}>Aux.</th>
 										<th className={TH}>Horas</th>
+										{showProject && <th className={TH}>Proyecto</th>}
 										<th className={`${TH} text-left`}>Notas</th>
 									</tr>
 								</thead>
@@ -123,10 +139,8 @@ export function GroupReportsTable() {
 											<td className={TD}>{i.reportId && i.participatedInMinistry ? <Check className="mx-auto size-4 text-accent" /> : ""}</td>
 											<td className={TD}>{num(i.bibleStudiesCount)}</td>
 											<td className={TD}>{i.reportId && i.isAuxiliaryPioneerThisMonth ? <Check className="mx-auto size-4 text-accent" /> : ""}</td>
-											<td className={TD}>
-												{num(i.hours)}
-												{i.projectHours ? <span className="text-xs text-ink-soft"> (+{i.projectHours})</span> : null}
-											</td>
+											<td className={TD}>{num(i.hours)}</td>
+											{showProject && <td className={TD}>{num(i.projectHours)}</td>}
 											<td className={`${TD} max-w-[200px] truncate text-left text-xs text-ink-soft`} title={i.comments ?? undefined}>
 												{i.comments ?? ""}
 											</td>
@@ -140,6 +154,7 @@ export function GroupReportsTable() {
 										<td className={`${TD} font-semibold`}>{totalStudies || ""}</td>
 										<td className={TD}>{group.items.filter((i) => i.reportId && i.isAuxiliaryPioneerThisMonth).length || ""}</td>
 										<td className={`${TD} font-semibold`}>{totalHours || ""}</td>
+										{showProject && <td className={`${TD} font-semibold`}>{totalProject || ""}</td>}
 										<td className={TD} />
 									</tr>
 								</tfoot>
