@@ -62,7 +62,7 @@ export function WeekendDetail({ meetingId }: { meetingId: string }) {
 		const [detailRes, eligibleRes, speakersRes, outlinesRes, opRes] = await Promise.all([
 			fetch(`/api/weekend/${meetingId}`),
 			fetch(`/api/privileges/eligible?privilegeIds=${ALL_PRIVILEGE_IDS.join(",")}`),
-			fetch(`/api/weekend/speakers?forAssignment=true`),
+			fetch(`/api/weekend/speakers?forAssignment=true&meetingId=${meetingId}`),
 			fetch(`/api/weekend/outlines`),
 			fetch(`/api/operational/assignments?meetingType=weekend&meetingId=${meetingId}`),
 		]);

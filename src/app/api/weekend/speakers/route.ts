@@ -1,7 +1,9 @@
-import { and, asc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { speakerCongregations, speakerOutlines, speakers, users } from "@/db/schema";
+import { speakerCongregations, speakerOutlines, speakers, talkArrangements, users, weekendMeetings } from "@/db/schema";
+import { readMeetingSchedules } from "@/lib/assignments/stats";
+import { effectiveMeetingDate } from "@/lib/attendance/summary";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { assertCanAccessWeekendModule, assertEligibleForAssignment } from "@/lib/rbac/guards";
@@ -54,6 +56,7 @@ export async function GET(request: Request) {
 		const search = searchParams.get("search")?.trim();
 		const kind = searchParams.get("kind");
 		const forAssignment = searchParams.get("forAssignment") === "true";
+		const meetingId = searchParams.get("meetingId");
 
 		const db = getDb();
 		let items = await listSpeakers(db);
@@ -65,6 +68,28 @@ export async function GET(request: Request) {
 			items = items.filter(
 				(s) => s.active && (s.kind === "visiting" || (s.userId && eligibleLocalIds.has(s.userId))),
 			);
+
+			// Al preparar una reunión, los oradores visitantes son solo los de las congregaciones con las que hay un arreglo de discursos para el mes en que
+			// se celebra esa reunión (los rechazados o con otro mes propuesto no cuentan); los locales siempre. Sin ningún arreglo ese mes, se ofrecen todos. El orador ya asignado se conserva en la lista.
+			if (meetingId) {
+				const [meeting] = await db
+					.select({ date: weekendMeetings.meetingDate, speakerId: weekendMeetings.speakerId })
+					.from(weekendMeetings)
+					.where(eq(weekendMeetings.id, meetingId))
+					.limit(1);
+				if (meeting) {
+					const real = effectiveMeetingDate(meeting.date, "weekend", await readMeetingSchedules(db));
+					const arranged = await db
+						.select({ congregationId: talkArrangements.congregationId })
+						.from(talkArrangements)
+						.where(and(eq(talkArrangements.year, Number(real.slice(0, 4))), eq(talkArrangements.month, Number(real.slice(5, 7))), inArray(talkArrangements.status, ["planned", "pending", "accepted"])));
+					const congregationIds = new Set(arranged.map((a) => a.congregationId));
+					// Si ese mes no hay ningún arreglo, no se filtra: se ofrecen todos los oradores (visitantes y locales).
+					if (congregationIds.size > 0) {
+						items = items.filter((s) => s.kind === "local" || s.id === meeting.speakerId || (s.congregationId != null && congregationIds.has(s.congregationId)));
+					}
+				}
+			}
 		}
 		if (kind === "local" || kind === "visiting") {
 			items = items.filter((s) => s.kind === kind);
