@@ -5,7 +5,7 @@ import { serviceReports } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { getPioneerAppointmentType } from "@/lib/rbac/eligibility";
-import { getCurrentServiceYear } from "@/lib/serviceYear";
+import { calendarYearForServiceMonth, getCurrentServiceYear, SERVICE_YEAR_MONTHS } from "@/lib/serviceYear";
 
 // Tarjeta de precursor regular en Mi Panel: cuánto lleva de horas en el año
 // de servicio actual (sept-ago) — solo lo pide esa tarjeta, por eso no
@@ -33,7 +33,14 @@ export async function GET() {
 			);
 		const hours = rows.reduce((sum, r) => sum + (r.hours ?? 0) + (r.projectHours ?? 0), 0);
 
-		return NextResponse.json({ isRegularPioneer: pioneerType === "regular_pioneer", serviceYear, hours });
+		// Horas de cada mes del año de servicio (septiembre a agosto, servicio + proyectos): la app las dibuja en el widget de precursorado.
+		const byMonth = new Map(rows.map((r) => [`${r.periodYear}-${r.periodMonth}`, (r.hours ?? 0) + (r.projectHours ?? 0)]));
+		const months = SERVICE_YEAR_MONTHS.map(({ month }) => {
+			const year = calendarYearForServiceMonth(serviceYear, month);
+			return { year, month, hours: byMonth.get(`${year}-${month}`) ?? 0 };
+		});
+
+		return NextResponse.json({ isRegularPioneer: pioneerType === "regular_pioneer", serviceYear, hours, months });
 	} catch (error) {
 		return errorResponse(error);
 	}
