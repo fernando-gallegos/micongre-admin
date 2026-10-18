@@ -2,8 +2,7 @@ import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { speakerCongregations, speakerOutlines, speakers, talkArrangements, users, weekendMeetings } from "@/db/schema";
-import { readMeetingSchedules } from "@/lib/assignments/stats";
-import { effectiveMeetingDate } from "@/lib/attendance/summary";
+import { mondayOf, parseISODate, toISODate } from "@/lib/mwb/dates";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { assertCanAccessWeekendModule, assertEligibleForAssignment } from "@/lib/rbac/guards";
@@ -65,12 +64,13 @@ export async function GET(request: Request) {
 			const eligibleLocalIds = new Set(
 				(await getEligiblePublishers(db, PRIVILEGE_IDS.PUBLIC_TALK_SPEAKER)).map((u) => u.id),
 			);
+			// La marca de activo es de los discursos que SALEN: al preparar la reunión propia (`meetingId`), un orador local siempre se considera activo.
 			items = items.filter(
-				(s) => s.active && (s.kind === "visiting" || (s.userId && eligibleLocalIds.has(s.userId))),
+				(s) => (s.active || (!!meetingId && s.kind === "local")) && (s.kind === "visiting" || (s.userId && eligibleLocalIds.has(s.userId))),
 			);
 
-			// Al preparar una reunión, los oradores visitantes son solo los de las congregaciones con las que hay un arreglo de discursos para el mes en que
-			// se celebra esa reunión (los rechazados o con otro mes propuesto no cuentan); los locales siempre. Sin ningún arreglo ese mes, se ofrecen todos. El orador ya asignado se conserva en la lista.
+			// Al preparar una reunión, los oradores visitantes son solo los de las congregaciones con las que hay un arreglo de discursos para el mes al que
+			// pertenece el primer día (lunes) de la semana que se prepara (los rechazados o con otro mes propuesto no cuentan); los locales siempre. Sin ningún arreglo ese mes, se ofrecen todos. El orador ya asignado se conserva en la lista.
 			if (meetingId) {
 				const [meeting] = await db
 					.select({ date: weekendMeetings.meetingDate, speakerId: weekendMeetings.speakerId })
@@ -78,7 +78,8 @@ export async function GET(request: Request) {
 					.where(eq(weekendMeetings.id, meetingId))
 					.limit(1);
 				if (meeting) {
-					const real = effectiveMeetingDate(meeting.date, "weekend", await readMeetingSchedules(db));
+					// El mes es el del primer día (lunes) de la semana que se está preparando, no el del sábado.
+					const real = toISODate(mondayOf(parseISODate(meeting.date)));
 					const arranged = await db
 						.select({ congregationId: talkArrangements.congregationId })
 						.from(talkArrangements)
