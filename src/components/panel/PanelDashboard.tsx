@@ -20,7 +20,7 @@ interface Group {
 	color?: string | null;
 	overseerName: string | null;
 	assistantName: string | null;
-	members: { id: string; fullName: string; activeAppointmentTypes: string[] }[];
+	members: { id: string; fullName: string; phone?: string | null; activeAppointmentTypes: string[] }[];
 }
 
 const now = new Date();

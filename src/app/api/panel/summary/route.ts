@@ -56,7 +56,7 @@ export async function GET() {
 				// de la lista de compañeros para no duplicarlos.
 				const leadIds = [groupRow.overseerUserId, groupRow.assistantUserId].filter((id): id is string => !!id);
 				const memberRows = await db
-					.select({ id: users.id, fullName: users.fullName })
+					.select({ id: users.id, fullName: users.fullName, phone: users.phone })
 					.from(users)
 					.where(
 						and(

@@ -9,7 +9,8 @@ npm install                    # install dependencies
 npm run dev                    # Next.js dev server (localhost:3000)
 npm run typecheck              # tsc --noEmit
 npm run build                  # next build (production build, no Cloudflare bundling)
-npm run check                  # typecheck + build, run this before considering a change done
+npm test                       # vitest: pruebas de la lógica pura (src/**/*.test.ts)
+npm run check                  # typecheck + tests + build, run this before considering a change done
 npm run preview                # opennextjs-cloudflare build + wrangler dev (emulates the real Worker + D1 locally)
 npm run deploy                 # opennextjs-cloudflare build + opennextjs-cloudflare deploy (publishes to Cloudflare)
 npm run db:migrate:local       # apply migrations/*.sql to local D1 (.wrangler/state)
@@ -19,7 +20,7 @@ npm run cf-typegen             # regenerate worker-configuration.d.ts from wrang
 npm run demo:deploy            # sitio Demo (Google Play): D1 micongre-demo-db + Worker micongre-demo, migra, despliega y recarga datos ficticios; demo:seed solo recarga los datos
 ```
 
-There is no test suite and no lint script configured. `npm run check` is the closest thing to a full verification pass; run it after any change, and manually smoke-test through the browser (login → the module you touched) since there's no automated coverage.
+Tests (Vitest, `src/lib/__tests__/`) cover only the pure logic: eligibility core, auto-assign engine, NWScheduler CSV, JW Hub links, message templates, meeting dates, project hours and the per-group reports (`lib/reports/groups.ts`, shared by `/api/reports/groups` and its export). Keep business rules in pure functions so they can be tested, and add a test when you change one. There is no lint script and no UI/API coverage: run `npm run check` after any change and smoke-test through the browser (login → the module you touched).
 
 Local dev needs a `.dev.vars` file (copy `.dev.vars.example`) with a `JWT_SECRET`. `next dev` picks it up via `initOpenNextCloudflareForDev()` in `next.config.mjs`, which lets `getCloudflareContext()` work outside of `wrangler dev` too.
 
