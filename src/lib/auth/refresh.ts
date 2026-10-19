@@ -22,8 +22,10 @@ export type RefreshResult =
 // Ventana en la que un refresh token ya rotado se tolera como carrera
 // concurrente (dos requests del mismo cliente llegan casi a la vez con el
 // mismo token, p.ej. dos pestañas reabiertas juntas) en vez de dispararse
-// como reuso malicioso y tumbar toda la sesión.
-const ROTATION_RACE_GRACE_MS = 5000;
+// como reuso malicioso y tumbar toda la sesión. 2 minutos cubren la red móvil
+// lenta y los trabajos de fondo de la app; fuera de ella, reusar un token rotado
+// sigue cerrando todas las sesiones.
+const ROTATION_RACE_GRACE_MS = 2 * 60 * 1000;
 
 /** Rota un refresh token (rotación + detección de reuso) y emite un nuevo
  * access token. Compartida por `POST /api/auth/refresh` y por `middleware.ts`,
