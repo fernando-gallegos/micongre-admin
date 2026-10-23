@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { ForgotPassword } from "./ForgotPassword";
 import { switchAccount, useAccounts } from "./useAccounts";
 
 export function LoginForm() {
@@ -107,6 +108,7 @@ export function LoginForm() {
 						{loading ? "Entrando..." : "Entrar"}
 					</Button>
 				</form>
+				<ForgotPassword initialIdentifier={username} />
 				<p className="text-[13px] leading-normal text-ink-soft">
 					¿Primera vez? Abre el enlace de activación que te enviaron para crear tu acceso.
 				</p>

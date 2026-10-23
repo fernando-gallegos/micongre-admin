@@ -1,6 +1,7 @@
 "use client";
 
 import { Children, forwardRef, Fragment, isValidElement, useMemo, useState, type InputHTMLAttributes, type LabelHTMLAttributes, type ReactNode } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Combobox, type ComboOption } from "./Combobox";
 
 interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -9,18 +10,41 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, FieldProps>(function Input(
-	{ label, error, className = "", id, ...props },
+	{ label, error, className = "", id, type, ...props },
 	ref,
 ) {
+	// Contraseñas: un ojo a la derecha muestra u oculta lo que se escribe.
+	const isPassword = type === "password";
+	const [visible, setVisible] = useState(false);
+	const input = (
+		<input
+			ref={ref}
+			id={id}
+			type={isPassword && visible ? "text" : type}
+			className={`min-h-12 w-full rounded-2xl border border-border bg-surface px-4 py-2 text-base text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm ${isPassword ? "pr-12" : ""} ${className}`}
+			{...props}
+		/>
+	);
 	return (
 		<label className="flex flex-col gap-1 text-sm">
 			{label && <span className="font-medium text-ink">{label}</span>}
-			<input
-				ref={ref}
-				id={id}
-				className={`min-h-12 rounded-2xl border border-border bg-surface px-4 py-2 text-base text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm ${className}`}
-				{...props}
-			/>
+			{isPassword ? (
+				<span className="relative flex">
+					{input}
+					<button
+						type="button"
+						onClick={() => setVisible((v) => !v)}
+						aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
+						aria-pressed={visible}
+						title={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
+						className="absolute inset-y-0 right-1 my-auto flex size-10 items-center justify-center rounded-full text-ink-soft hover:bg-surface-alt hover:text-ink"
+					>
+						{visible ? <EyeOff size={20} /> : <Eye size={20} />}
+					</button>
+				</span>
+			) : (
+				input
+			)}
 			{error && <span className="text-xs text-red-600">{error}</span>}
 		</label>
 	);

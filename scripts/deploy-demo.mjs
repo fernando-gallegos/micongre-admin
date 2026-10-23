@@ -70,7 +70,7 @@ try {
 		execFileSync("npx", ["wrangler", "d1", "migrations", "apply", "DB", "--remote"], { shell: true, stdio: ["pipe", "inherit", "inherit"], input: "y\n" });
 
 		console.log("Desplegando el Worker de demostración...");
-		const build = spawnSync("npx", ["opennextjs-cloudflare", "build"], { shell: true, stdio: "inherit" });
+		const build = spawnSync("npx", ["opennextjs-cloudflare", "build", "--dangerouslyUseUnsupportedNextVersion"], { shell: true, stdio: "inherit" });
 		if (build.status !== 0) throw new Error("falló la compilación");
 		const deploy = spawnSync("npx", ["opennextjs-cloudflare", "deploy"], { shell: true, encoding: "utf8", stdio: ["inherit", "pipe", "inherit"] });
 		process.stdout.write(deploy.stdout ?? "");
