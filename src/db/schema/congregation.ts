@@ -38,6 +38,13 @@ export const congregations = sqliteTable("congregations", {
 	linkAppointedColor: text("link_appointed_color"),
 	linkEldersUrl: text("link_elders_url"),
 	linkEldersColor: text("link_elders_color"),
+	// Solo precursores regulares, solo siervos ministeriales y solo el comité de la congregación (migración 0067).
+	linkPioneersUrl: text("link_pioneers_url"),
+	linkPioneersColor: text("link_pioneers_color"),
+	linkMinisterialUrl: text("link_ministerial_url"),
+	linkMinisterialColor: text("link_ministerial_color"),
+	linkCommitteeUrl: text("link_committee_url"),
+	linkCommitteeColor: text("link_committee_color"),
 	zoomUrl: text("zoom_url"),
 	// Montos en centavos enteros — son datos contables que deben cuadrar exacto
 	// (a diferencia de service_reports.hours, que es una medida aproximada).

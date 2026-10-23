@@ -6,6 +6,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { addDays, parseISODate, toISODate } from "@/lib/mwb/dates";
 import { getUserAssignments } from "@/lib/queries/panel";
+import { SERVICE_COMMITTEE_APPOINTMENTS } from "@/lib/rbac/roles";
 import { notHiddenAdmin } from "@/lib/rbac/visibility";
 
 // Todo lo que necesita "Mi panel" en un solo request — asignaciones
@@ -121,7 +122,10 @@ export async function GET() {
 				.where(and(eq(theocraticAppointments.userId, session.userId), isNull(theocraticAppointments.endDate)))
 		).map((a) => a.type);
 		const isElder = myAppointments.includes("elder");
-		const isAppointed = isElder || myAppointments.includes("ministerial_servant");
+		const isMinisterialServant = myAppointments.includes("ministerial_servant");
+		const isAppointed = isElder || isMinisterialServant;
+		const isRegularPioneer = myAppointments.includes("regular_pioneer");
+		const isCommittee = myAppointments.some((t) => (SERVICE_COMMITTEE_APPOINTMENTS as readonly string[]).includes(t));
 		const links: { kind: string; label: string; url: string; color: string }[] = [];
 		const clean = (v: string | null | undefined) => v?.trim() || "";
 		if (isElder) links.push({ kind: "hub", label: "Hub", url: "https://hub.jw.org", color: "#F97316" });
@@ -132,6 +136,10 @@ export async function GET() {
 			add("congregation", "Grupo de la congregación", cong.linkCongregationUrl, cong.linkCongregationColor);
 			if (isAppointed) add("appointed", "Grupo de nombrados", cong.linkAppointedUrl, cong.linkAppointedColor);
 			if (isElder) add("elders", "Grupo de ancianos", cong.linkEldersUrl, cong.linkEldersColor);
+			// Solo para quien tiene ese nombramiento: precursores regulares, siervos ministeriales (no ancianos) y el comité.
+			if (isRegularPioneer) add("pioneers", "Grupo de precursores regulares", cong.linkPioneersUrl, cong.linkPioneersColor);
+			if (isMinisterialServant) add("ministerial", "Grupo de siervos ministeriales", cong.linkMinisterialUrl, cong.linkMinisterialColor);
+			if (isCommittee) add("committee", "Grupo del comité de la congregación", cong.linkCommitteeUrl, cong.linkCommitteeColor);
 			if (clean(cong.zoomUrl)) links.push({ kind: "zoom", label: "Zoom", url: clean(cong.zoomUrl), color: "#2D8CFF" });
 		}
 

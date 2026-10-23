@@ -39,6 +39,12 @@ interface CongregationResponse {
 	linkAppointedColor: string | null;
 	linkEldersUrl: string | null;
 	linkEldersColor: string | null;
+	linkPioneersUrl: string | null;
+	linkPioneersColor: string | null;
+	linkMinisterialUrl: string | null;
+	linkMinisterialColor: string | null;
+	linkCommitteeUrl: string | null;
+	linkCommitteeColor: string | null;
 	zoomUrl: string | null;
 }
 
@@ -67,6 +73,12 @@ interface FormState {
 	linkAppointedColor: string;
 	linkEldersUrl: string;
 	linkEldersColor: string;
+	linkPioneersUrl: string;
+	linkPioneersColor: string;
+	linkMinisterialUrl: string;
+	linkMinisterialColor: string;
+	linkCommitteeUrl: string;
+	linkCommitteeColor: string;
 	zoomUrl: string;
 }
 
@@ -96,6 +108,12 @@ function toFormState(data: CongregationResponse): FormState {
 		linkAppointedColor: data.linkAppointedColor ?? "#7C3AED",
 		linkEldersUrl: data.linkEldersUrl ?? "",
 		linkEldersColor: data.linkEldersColor ?? "#E11D48",
+		linkPioneersUrl: data.linkPioneersUrl ?? "",
+		linkPioneersColor: data.linkPioneersColor ?? "#0D9488",
+		linkMinisterialUrl: data.linkMinisterialUrl ?? "",
+		linkMinisterialColor: data.linkMinisterialColor ?? "#2563EB",
+		linkCommitteeUrl: data.linkCommitteeUrl ?? "",
+		linkCommitteeColor: data.linkCommitteeColor ?? "#B45309",
 		zoomUrl: data.zoomUrl ?? "",
 	};
 }
@@ -161,6 +179,12 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 				linkAppointedColor: form.linkAppointedColor,
 				linkEldersUrl: form.linkEldersUrl.trim() || null,
 				linkEldersColor: form.linkEldersColor,
+				linkPioneersUrl: form.linkPioneersUrl.trim() || null,
+				linkPioneersColor: form.linkPioneersColor,
+				linkMinisterialUrl: form.linkMinisterialUrl.trim() || null,
+				linkMinisterialColor: form.linkMinisterialColor,
+				linkCommitteeUrl: form.linkCommitteeUrl.trim() || null,
+				linkCommitteeColor: form.linkCommitteeColor,
 				zoomUrl: form.zoomUrl.trim() || null,
 			}),
 		});
@@ -308,6 +332,9 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 								["Grupo de la congregación", "linkCongregationUrl", "linkCongregationColor"],
 								["Grupo de nombrados (siervos ministeriales y ancianos)", "linkAppointedUrl", "linkAppointedColor"],
 								["Grupo de ancianos (solo ancianos)", "linkEldersUrl", "linkEldersColor"],
+								["Grupo de precursores regulares (solo precursores regulares)", "linkPioneersUrl", "linkPioneersColor"],
+								["Grupo de siervos ministeriales (solo siervos ministeriales)", "linkMinisterialUrl", "linkMinisterialColor"],
+								["Grupo del comité de la congregación (coordinador, secretario y superintendente de servicio)", "linkCommitteeUrl", "linkCommitteeColor"],
 							] as const
 						).map(([label, urlKey, colorKey]) => (
 							<div key={urlKey} className="grid grid-cols-[1fr_auto] items-end gap-3">

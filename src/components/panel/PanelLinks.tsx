@@ -3,7 +3,7 @@
 import { Tooltip } from "@/components/ui/Tooltip";
 
 export interface PanelLink {
-	kind: "congregation" | "appointed" | "elders" | "zoom" | "hub";
+	kind: "congregation" | "appointed" | "elders" | "pioneers" | "ministerial" | "committee" | "zoom" | "hub";
 	label: string;
 	url: string;
 	color: string;
