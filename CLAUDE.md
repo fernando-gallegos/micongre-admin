@@ -28,7 +28,7 @@ Bootstrapping: while no user has `system_role='admin'`, `src/middleware.ts` redi
 
 ## Architecture
 
-Congregation-management web app (Jehovah's Witnesses congregation administration — publishers, appointments/privileges, meeting scheduling, operational tasks, service reports, attendance). Next.js App Router, deployed to Cloudflare Workers via OpenNext, with Cloudflare D1 (SQLite) via Drizzle ORM. Phase 1 of 2 — a future Android app (not in this repo) will consume the same `/api/auth/*` and other API routes, which is why auth is token-based rather than pure server-session.
+Congregation-management web app (Jehovah's Witnesses congregation administration — publishers, appointments/privileges, meeting scheduling, operational tasks, service reports, attendance). Next.js 16 App Router (keep `middleware.ts`: the new `proxy` file runs on the Node runtime, which OpenNext/Workers do not support yet; Next prints a deprecation warning), deployed to Cloudflare Workers via OpenNext, with Cloudflare D1 (SQLite) via Drizzle ORM. Phase 1 of 2 — a future Android app (not in this repo) will consume the same `/api/auth/*` and other API routes, which is why auth is token-based rather than pure server-session.
 
 ### Migrations are hand-written, not drizzle-kit-generated
 
