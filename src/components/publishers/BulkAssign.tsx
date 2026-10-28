@@ -2,7 +2,7 @@
 
 import { SelectBox } from "@/components/ui/Input";
 import { useEffect, useMemo, useState } from "react";
-import { FileDown } from "lucide-react";
+import { FileDown, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Chip, ChipGroup } from "@/components/ui/Layout";
 import { Modal } from "@/components/ui/Modal";
@@ -75,6 +75,21 @@ export function BulkAssign() {
 	const [confirming, setConfirming] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [result, setResult] = useState<Result | null>(null);
+	// Tabla maximizada: ocupa todo el viewport (no es pantalla completa del navegador); Esc o «Restaurar» la devuelven.
+	const [maximized, setMaximized] = useState(false);
+	useEffect(() => {
+		if (!maximized) return;
+		const overflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && !confirming && !result) setMaximized(false);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => {
+			document.body.style.overflow = overflow;
+			window.removeEventListener("keydown", onKey);
+		};
+	}, [maximized, confirming, result]);
 
 	async function load() {
 		const res = await fetch("/api/publishers/bulk");
@@ -298,6 +313,15 @@ export function BulkAssign() {
 						</Chip>
 					</ChipGroup>
 				)}
+				<Button
+					variant="secondary"
+					className="ml-auto !min-h-10 !px-3"
+					onClick={() => setMaximized(true)}
+					aria-label="Maximizar"
+					title="Maximizar la tabla"
+				>
+					<Maximize2 size={16} />
+				</Button>
 			</div>
 			{(!data.canPrivileges || !data.canAppointments) && (
 				<p className="text-xs text-ink-soft">
@@ -305,8 +329,23 @@ export function BulkAssign() {
 				</p>
 			)}
 
-			{/* Matriz: la primera columna y el encabezado quedan fijos al desplazar */}
-			<div className="max-h-[70vh] overflow-auto rounded-[20px] bg-surface">
+			{/* Matriz: la primera columna y el encabezado quedan fijos al desplazar. Maximizada, ocupa todo el viewport con su propia barra. */}
+			<div className={maximized ? "fixed inset-0 z-[45] flex flex-col gap-2 bg-bg p-2 sm:p-3" : "contents"}>
+				{maximized && (
+					<div className="flex flex-wrap items-center gap-2">
+						<span className="mr-auto text-sm text-ink-soft">
+							{tab === "privileges" ? "Privilegios" : "Nombramientos"} ·{" "}
+							{total === 0 ? "Sin cambios" : `${total} ${total === 1 ? "cambio" : "cambios"} sin guardar`}
+						</span>
+						<Button variant="secondary" className="!min-h-10 !px-3" onClick={() => setMaximized(false)} aria-label="Restaurar" title="Restaurar al tamaño normal (Esc)">
+							<Minimize2 size={16} />
+						</Button>
+						<Button className="!min-h-10" disabled={total === 0 || saving} onClick={() => setConfirming(true)}>
+							Guardar
+						</Button>
+					</div>
+				)}
+			<div className={`overflow-auto rounded-[20px] bg-surface ${maximized ? "min-h-0 flex-1" : "max-h-[70vh]"}`}>
 				<table className="border-separate border-spacing-0 text-sm">
 					<thead>
 						<tr>
@@ -369,6 +408,7 @@ export function BulkAssign() {
 						)}
 					</tbody>
 				</table>
+			</div>
 			</div>
 			<p className="text-xs text-ink-soft">
 				Toca una casilla para marcarla o quitarla; el encabezado de cada columna marca o desmarca a todas las personas mostradas. Los cambios se aplican al guardar.
