@@ -126,7 +126,7 @@ function TemplateEditor({
 			{message && <p className={`text-sm ${message.ok ? "text-ink-soft" : "text-red-600"}`}>{message.text}</p>}
 			{slots.length === 0 ? (
 				<Card>
-					<p className="text-sm text-ink-soft">Sin asignaciones: las reuniones de {TITLES[type].toLowerCase()} no llevarán tareas operativas.</p>
+					<p className="text-sm text-ink-soft">Sin asignaciones: las reuniones de {TITLES[type].toLowerCase()} no llevarán acomodadores.</p>
 				</Card>
 			) : (
 					<List>

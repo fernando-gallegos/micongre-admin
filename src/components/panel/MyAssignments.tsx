@@ -12,7 +12,7 @@ import type { PanelAssignment } from "@/lib/queries/panel";
 const MEETING_TYPE_LABEL: Record<string, string> = {
 	midweek: "Entre semana",
 	weekend: "Fin de semana",
-	operational: "Tarea operativa",
+	operational: "Acomodadores",
 	outgoing_talk: "Discurso enviado",
 	preaching: "Predicación",
 	pastoral_visit: "Pastoreo",

@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
 		const catalog = new Set((await loadOperationalCatalog(db)).map((p) => p.id));
 		const slots: TemplateSlot[] = parsed.data.slots.map((s) => ({ privilegeId: s.privilegeId, position: normalizePosition(s.position) }));
 		if (slots.some((s) => !catalog.has(s.privilegeId))) {
-			return NextResponse.json({ error: "invalid_privilege", message: "Una de las asignaciones no es una tarea operativa." }, { status: 400 });
+			return NextResponse.json({ error: "invalid_privilege", message: "Una de las asignaciones no es de acomodadores." }, { status: 400 });
 		}
 		const duplicate = findDuplicatePosition(slots);
 		if (duplicate) {

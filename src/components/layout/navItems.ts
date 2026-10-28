@@ -90,7 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
 			},
 			{
 				href: "/operational",
-				label: "Tareas operativas",
+				label: "Acomodadores",
 				icon: Mic2,
 				requiresAnyPrivilege: [PRIVILEGE_CODES.OPERATIONAL_ACCESS],
 			},

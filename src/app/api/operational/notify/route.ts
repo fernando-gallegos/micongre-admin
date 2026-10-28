@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 			rows.map((row) => {
 				const label = row.position ? `${row.privilegeName} — ${row.position}` : row.privilegeName;
 				return notifyUser(db, row.assignedUserId as string, {
-					title: "Se te asignó una tarea operativa",
+					title: "Tienes una asignación de acomodadores",
 					body: `${label}${meeting ? ` · ${formatShortDate(meeting.meetingDate)}` : ""}`,
 					url: "/panel",
 				});

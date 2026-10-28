@@ -310,7 +310,7 @@ export function assertCanAccessWeekendModule(session: Session | null): asserts s
 /** Módulo Tareas operativas: admin, o el privilegio otorgado. */
 export function assertCanAccessOperationalModule(session: Session | null): asserts session is Session {
 	if (!session || (session.role !== "admin" && !session.privilegeCodes.includes(PRIVILEGE_CODES.OPERATIONAL_ACCESS))) {
-		throw new RbacError("No tienes acceso al módulo de tareas operativas.");
+		throw new RbacError("No tienes acceso al módulo de acomodadores.");
 	}
 }
 

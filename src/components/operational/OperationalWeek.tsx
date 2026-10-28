@@ -62,7 +62,7 @@ export function OperationalWeek() {
 	return (
 		<div className="flex flex-col gap-5">
 			<PageHeader
-				title="Tareas operativas"
+				title="Acomodadores"
 				actions={
 					<ExportButton
 						kind="operational"
@@ -71,7 +71,7 @@ export function OperationalWeek() {
 							{ label: "Esta semana", params: { scope: "week" } },
 							{ label: "Todo el mes", params: { scope: "month" } },
 						]}
-						label="Descargar reporte de tareas operativas"
+						label="Descargar reporte de acomodadores"
 					/>
 				}
 			/>

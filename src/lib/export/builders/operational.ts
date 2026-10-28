@@ -65,8 +65,8 @@ export async function buildOperational(ctx: BuilderContext): Promise<ReportDoc> 
 
 	if (inRange.length === 0) {
 		return {
-			title: `Tareas operativas — ${range.label}`,
-			fileName: `tareas-operativas-${range.slug}`,
+			title: `Acomodadores — ${range.label}`,
+			fileName: `acomodadores-${range.slug}`,
 			landscape: true,
 			blocks: [{ type: "paragraph", text: "No hay reuniones programadas en este periodo.", muted: true }],
 			footer: FOOTER,
@@ -108,11 +108,11 @@ export async function buildOperational(ctx: BuilderContext): Promise<ReportDoc> 
 	];
 
 	return {
-		title: `Tareas operativas — ${range.label}`,
-		fileName: `tareas-operativas-${range.slug}`,
+		title: `Acomodadores — ${range.label}`,
+		fileName: `acomodadores-${range.slug}`,
 		landscape: true,
 		blocks: rows.length
-			? [{ type: "table", table: { sheetName: "Tareas operativas", columns, rows } }]
+			? [{ type: "table", table: { sheetName: "Acomodadores", columns, rows } }]
 			: [{ type: "paragraph", text: "No hay tareas asignadas en este periodo.", muted: true }],
 		footer: FOOTER,
 	};
