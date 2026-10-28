@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, inArray, lte, ne, notInArray, sql } from "drizzle-orm";
+import { loadOperationalCatalog, loadTemplate } from "@/lib/operational/template";
 import type { Database } from "@/db/client";
 import {
 	CONGREGATION_ROW_ID,
@@ -220,33 +221,35 @@ export interface OperationalRow {
 	position: string | null;
 }
 
-/** Tareas operativas de una reunión (solo lectura: no siembra puestos). Las tareas
- * sin fila aparecen igual, sin asignar. */
+/** Tareas operativas de una reunión (solo lectura: no crea puestos). Una reunión que aún no se abrió muestra los puestos
+ * de la plantilla, sin asignar. */
 export async function loadOperational(
 	db: Database,
 	meetingType: "midweek" | "weekend",
 	meetingId: string,
 ): Promise<OperationalRow[]> {
-	const tasks = await db
-		.select({ id: privileges.id, name: privileges.name })
-		.from(privileges)
-		.where(and(eq(privileges.category, "operational"), notInArray(privileges.id, NON_MEETING_OPERATIONAL_IDS)))
-		.orderBy(asc(privileges.name));
 	const rows = await db
 		.select({
-			privilegeId: operationalSchedules.privilegeId,
+			task: privileges.name,
 			position: operationalSchedules.position,
 			person: users.fullName,
 		})
 		.from(operationalSchedules)
+		.innerJoin(privileges, eq(privileges.id, operationalSchedules.privilegeId))
 		.leftJoin(users, eq(users.id, operationalSchedules.assignedUserId))
-		.where(and(eq(operationalSchedules.meetingType, meetingType), eq(operationalSchedules.meetingId, meetingId)));
+		.where(
+			and(
+				eq(operationalSchedules.meetingType, meetingType),
+				eq(operationalSchedules.meetingId, meetingId),
+				notInArray(operationalSchedules.privilegeId, NON_MEETING_OPERATIONAL_IDS),
+			),
+		)
+		.orderBy(asc(privileges.name), asc(operationalSchedules.position));
+	if (rows.length > 0) return rows;
 
-	const out: OperationalRow[] = [];
-	for (const t of tasks) {
-		const mine = rows.filter((r) => r.privilegeId === t.id);
-		if (mine.length === 0) out.push({ task: t.name, person: null, position: null });
-		for (const r of mine) out.push({ task: t.name, person: r.person, position: r.position });
-	}
-	return out;
+	const names = new Map((await loadOperationalCatalog(db)).map((p) => [p.id, p.name]));
+	return (await loadTemplate(db, meetingType))
+		.filter((s) => names.has(s.privilegeId))
+		.map((s) => ({ task: names.get(s.privilegeId) as string, person: null, position: s.position }))
+		.sort((a, b) => a.task.localeCompare(b.task, "es") || (a.position ?? "").localeCompare(b.position ?? "", "es"));
 }

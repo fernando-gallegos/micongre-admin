@@ -14,6 +14,7 @@ import { getDefaultWatchtowerConductorId } from "@/lib/weekend/defaults";
 import { ensureSongsCatalog } from "@/lib/songs/catalog";
 import { importWatchtowerForWeeks } from "@/lib/weekend/watchtower";
 import { purgeOldOperations } from "@/lib/http/idempotency";
+import { currentWeekStart, syncUpcomingMeetings, type SyncResult } from "@/lib/operational/template";
 
 /** Hora de Nicaragua (UTC−6, sin horario de verano). */
 const NICARAGUA_OFFSET_HOURS = -6;
@@ -21,6 +22,8 @@ const NICARAGUA_OFFSET_HOURS = -6;
 export interface DailyResult {
 	midweek: { created: number; imported: number; skeletons: number; filled: number; errors: string[] };
 	weekend: { created: number };
+	/** Puestos de tareas operativas ajustados a la plantilla (null si falló). */
+	operational: SyncResult | null;
 	congregations: { checked: number; updated: number; failed: { name: string; reason: string }[] };
 	/** Recordatorio del informe del mes anterior (null si falló). */
 	reports: ReportReminderResult | null;
@@ -169,12 +172,13 @@ async function syncCongregations(db: Database, out: DailyResult["congregations"]
 }
 
 /** Job diario: (1) deja armados los programas del mes en curso y del siguiente (entre semana y fin de semana) y
- * (2) actualiza desde jw.org el día y la hora de las congregaciones de arreglos que tienen enlace. Cada paso es independiente:
+ * con sus puestos de tareas operativas según la plantilla, y (2) actualiza desde jw.org el día y la hora de las congregaciones de arreglos que tienen enlace. Cada paso es independiente:
  * si uno falla, el otro corre igual. `only` limita a un paso (pruebas). */
 export async function runDailyJob(db: Database, now = new Date(), only?: "programs" | "congregations" | "reports"): Promise<DailyResult> {
 	const result: DailyResult = {
 		midweek: { created: 0, imported: 0, skeletons: 0, filled: 0, errors: [] },
 		weekend: { created: 0 },
+		operational: null,
 		congregations: { checked: 0, updated: 0, failed: [] },
 		reports: null,
 	};
@@ -202,6 +206,13 @@ export async function runDailyJob(db: Database, now = new Date(), only?: "progra
 			} catch (error) {
 				console.error("daily_weekend_failed", error);
 			}
+		}
+		// Tareas operativas: cada reunión desde la semana en curso queda con los puestos de la plantilla
+		// (agrega los que falten y quita los que sobren, solo si nadie los ocupa).
+		try {
+			result.operational = await syncUpcomingMeetings(db, currentWeekStart(now));
+		} catch (error) {
+			console.error("daily_operational_failed", error);
 		}
 	}
 

@@ -235,8 +235,8 @@ export function WeeklyMatrix({
 				<SectionLabel>Agregar un puesto adicional</SectionLabel>
 				<Card>
 					<p className="mb-3 text-xs text-ink-soft">
-						Cada privilegio operativo ya tiene un puesto arriba. Usa esto solo si necesitas más de una persona en el
-						mismo privilegio (p. ej. dos acomodadores de entrada) — "Puesto" es para distinguirlos entre sí.
+						Los puestos de cada reunión salen de la pestaña «Puestos». Agrega aquí uno solo para esta reunión; si queda sin
+						asignar, el job diario lo quita para dejarla igual que la plantilla.
 					</p>
 					<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
 						<Select label="Privilegio" value={newPrivilegeId} onChange={(e) => setNewPrivilegeId(e.target.value)}>

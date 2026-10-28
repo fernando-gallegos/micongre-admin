@@ -31,6 +31,9 @@ export const congregations = sqliteTable("congregations", {
 	skipOpeningPrayer: integer("skip_opening_prayer", { mode: "boolean" }).notNull().default(false),
 	// Animaciones de bienvenida en Mi Panel (web): apagadas por defecto; los archivos viven en welcome_animations.
 	animationsEnabled: integer("animations_enabled", { mode: "boolean" }).notNull().default(false),
+	// Puestos de tareas operativas: false = todavía no se configuraron (vale la plantilla por omisión: un puesto por cada
+	// privilegio operativo); true = manda operational_template_slots, aunque esté vacía (migración 0068).
+	operationalTemplateSet: integer("operational_template_set", { mode: "boolean" }).notNull().default(false),
 	// Enlaces de Mi Panel (grupos de mensajería con su color, y Zoom).
 	linkCongregationUrl: text("link_congregation_url"),
 	linkCongregationColor: text("link_congregation_color"),

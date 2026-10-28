@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader, SectionLabel, Segmented } from "@/components/ui/Layout";
 import { WeekNav, useStoredWeek } from "@/components/shared/WeekNav";
 import { addDays, mondayOf, toISODate } from "@/lib/mwb/dates";
+import { OperationalTemplate } from "./OperationalTemplate";
 import { WeeklyMatrix } from "./WeeklyMatrix";
 
 const TABS: { value: "midweek" | "weekend"; label: string }[] = [
@@ -31,7 +32,7 @@ export function OperationalWeek() {
 	const [weekStart, setWeekStart] = useStoredWeek("operational");
 	const [rows, setRows] = useState<MeetingRow[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [tab, setTab] = useState<"midweek" | "weekend">("midweek");
+	const [tab, setTab] = useState<"midweek" | "weekend" | "template">("midweek");
 
 	useEffect(() => {
 		async function load() {
@@ -75,9 +76,9 @@ export function OperationalWeek() {
 				}
 			/>
 
-			<WeekNav weekStart={weekStart} onChange={setWeekStart} />
+			<Segmented value={tab} onChange={setTab} options={[...TABS, { value: "template" as const, label: "Puestos" }]} label="Reunión" />
 
-			<Segmented value={tab} onChange={setTab} options={TABS} label="Reunión" />
+			{tab === "template" ? <OperationalTemplate /> : <WeekNav weekStart={weekStart} onChange={setWeekStart} />}
 
 			{/* Ambas matrices quedan montadas para no perder lo que se haya elegido sin guardar al cambiar de pestaña. */}
 			{!loading &&

@@ -2,6 +2,7 @@ import { and, asc, eq, notInArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { operationalSchedules, privileges, users } from "@/db/schema";
+import { syncMeetingsToTemplate } from "@/lib/operational/template";
 import { errorResponse } from "@/lib/api/errors";
 import { checkOperationalCollisions } from "@/lib/collision";
 import { getSession } from "@/lib/auth/session";
@@ -24,27 +25,14 @@ export async function GET(request: Request) {
 
 		const db = getDb();
 
-		// Primera vez que se abre esta reunión: se siembra un puesto por cada
-		// privilegio operativo asignable (todo category='operational' menos
-		// "Tareas operativas", que es el privilegio de acceso al módulo, no una
-		// tarea) — así cada reunión arranca con los 9 puestos listos para
-		// asignar, en vez de una matriz vacía que hay que armar a mano.
+		// Primera vez que se abre esta reunión: se arma con los puestos de la plantilla de la congregación
+		// (pestaña «Puestos»). Después la mantienen al día el guardado de la plantilla y el job diario.
 		const existingCount = await db
 			.select({ id: operationalSchedules.id })
 			.from(operationalSchedules)
 			.where(and(eq(operationalSchedules.meetingType, meetingType), eq(operationalSchedules.meetingId, meetingId)))
 			.limit(1);
-		if (existingCount.length === 0) {
-			const assignableTasks = await db
-				.select({ id: privileges.id })
-				.from(privileges)
-				.where(and(eq(privileges.category, "operational"), notInArray(privileges.id, NON_MEETING_OPERATIONAL_IDS)));
-			if (assignableTasks.length > 0) {
-				await db.insert(operationalSchedules).values(
-					assignableTasks.map((p) => ({ meetingType, meetingId, privilegeId: p.id })),
-				);
-			}
-		}
+		if (existingCount.length === 0) await syncMeetingsToTemplate(db, meetingType, [meetingId]);
 
 		const rows = await db
 			.select({
@@ -66,7 +54,7 @@ export async function GET(request: Request) {
 					notInArray(operationalSchedules.privilegeId, NON_MEETING_OPERATIONAL_IDS),
 				),
 			)
-			.orderBy(asc(privileges.name));
+			.orderBy(asc(privileges.name), asc(operationalSchedules.position));
 
 		const items = await Promise.all(
 			rows.map(async (row) => ({
