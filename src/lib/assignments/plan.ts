@@ -175,7 +175,7 @@ async function planOperational(db: Database, meetingType: "midweek" | "weekend",
 			.filter((r) => !r.user)
 			.map((r) => ({
 				key: `o:${r.id}`,
-				label: r.position ? `${r.name} — ${r.position}` : r.name,
+				label: r.position || r.name,
 				group: audioVideo.includes(r.privilegeId) ? "Audio y video" : "Acomodadores y otras tareas",
 				privilegeId: r.privilegeId,
 				typeKey: operationalTypeKey(r.privilegeId),

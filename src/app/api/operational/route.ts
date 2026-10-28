@@ -2,7 +2,7 @@ import { and, asc, eq, notInArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { operationalSchedules, privileges, users } from "@/db/schema";
-import { syncMeetingsToTemplate } from "@/lib/operational/template";
+import { loadTemplate, slotDisplayName, sortByTemplate, syncMeetingsToTemplate } from "@/lib/operational/template";
 import { errorResponse } from "@/lib/api/errors";
 import { checkOperationalCollisions } from "@/lib/collision";
 import { getSession } from "@/lib/auth/session";
@@ -54,10 +54,12 @@ export async function GET(request: Request) {
 					notInArray(operationalSchedules.privilegeId, NON_MEETING_OPERATIONAL_IDS),
 				),
 			)
-			.orderBy(asc(privileges.name), asc(operationalSchedules.position));
+			.orderBy(asc(privileges.name));
 
+		// En el orden de la plantilla de la congregación.
+		const ordered = sortByTemplate(rows, await loadTemplate(db, meetingType), (r) => slotDisplayName(r.privilegeName, r.position));
 		const items = await Promise.all(
-			rows.map(async (row) => ({
+			ordered.map(async (row) => ({
 				...row,
 				warnings: row.assignedUserId
 					? await checkOperationalCollisions(db, meetingType, meetingId, row.assignedUserId, row.id)

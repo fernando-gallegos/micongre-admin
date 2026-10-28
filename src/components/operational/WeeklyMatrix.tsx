@@ -162,7 +162,7 @@ export function WeeklyMatrix({
 			...program.filter((p) => p.userId === userId).map((p) => p.label),
 			...slots
 				.filter((s) => s.id !== slot.id && shownUserId(s) === userId)
-				.map((s) => `${s.privilegeName}${s.position ? ` (${s.position})` : ""}`),
+				.map((s) => s.position || s.privilegeName),
 		];
 		return labels.length ? [`Ya está asignado este día como: ${[...new Set(labels)].join(", ")}.`] : [];
 	}
@@ -232,11 +232,11 @@ export function WeeklyMatrix({
 			)}
 
 			<section>
-				<SectionLabel>Agregar un puesto adicional</SectionLabel>
+				<SectionLabel>Agregar una asignación solo a esta reunión</SectionLabel>
 				<Card>
 					<p className="mb-3 text-xs text-ink-soft">
-						Los puestos de cada reunión salen de la pestaña «Puestos». Agrega aquí uno solo para esta reunión; si queda sin
-						asignar, el job diario lo quita para dejarla igual que la plantilla.
+						Las asignaciones de cada reunión salen de la pestaña «Plantilla». Si la que agregas aquí queda sin nadie, el job
+						diario la quita para dejar la reunión igual que la plantilla.
 					</p>
 					<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
 						<Select label="Privilegio" value={newPrivilegeId} onChange={(e) => setNewPrivilegeId(e.target.value)}>
@@ -247,7 +247,7 @@ export function WeeklyMatrix({
 							))}
 						</Select>
 						<Input
-							label="Puesto (opcional)"
+							label="Nombre (opcional)"
 							placeholder='p. ej. "Puerta izquierda"'
 							value={newPosition}
 							onChange={(e) => setNewPosition(e.target.value)}

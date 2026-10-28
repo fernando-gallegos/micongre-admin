@@ -162,3 +162,24 @@ export async function syncUpcomingMeetings(
 	}
 	return total;
 }
+
+/** Nombre que se muestra de una asignación: el que se le dio en la plantilla o, si no tiene, el de la tarea. */
+export function slotDisplayName(taskName: string, position: string | null | undefined): string {
+	return normalizePosition(position) ?? taskName;
+}
+
+/** Ordena las asignaciones de una reunión como en la plantilla: la n-ésima «Acomodador de entrada» toma el lugar de la n-ésima de
+ * la plantilla. Lo que no está en la plantilla (agregado a mano o ya ocupado y quitado de ella) va al final, por nombre. */
+export function sortByTemplate<T extends TemplateSlot>(rows: T[], template: TemplateSlot[], name: (row: T) => string): T[] {
+	const places = new Map<string, number[]>();
+	template.forEach((t, i) => places.set(slotKey(t), [...(places.get(slotKey(t)) ?? []), i]));
+	const seen = new Map<string, number>();
+	const byName = [...rows].sort((a, b) => name(a).localeCompare(name(b), "es"));
+	const ranked = byName.map((row) => {
+		const k = slotKey(row);
+		const n = seen.get(k) ?? 0;
+		seen.set(k, n + 1);
+		return { row, rank: places.get(k)?.[n] ?? Number.MAX_SAFE_INTEGER };
+	});
+	return ranked.sort((a, b) => a.rank - b.rank || name(a.row).localeCompare(name(b.row), "es")).map((r) => r.row);
+}

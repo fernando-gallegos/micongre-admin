@@ -25,11 +25,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
 			doc.theme = "plain";
 		} else {
 			const [row] = await db
-				.select({ theme: congregations.reportTheme })
+				.select({ theme: congregations.reportTheme, name: congregations.name })
 				.from(congregations)
 				.where(eq(congregations.id, CONGREGATION_ROW_ID))
 				.limit(1);
 			doc.theme = isReportThemeId(row?.theme) ? row.theme : DEFAULT_REPORT_THEME;
+			// Debajo del título, el nombre de la congregación (y lo que el reporte ya traía de subtítulo).
+			const name = row?.name?.trim();
+			if (name && !doc.bare) doc.subtitle = doc.subtitle ? `${name} · ${doc.subtitle}` : name;
 		}
 		return NextResponse.json({ doc });
 	} catch (error) {

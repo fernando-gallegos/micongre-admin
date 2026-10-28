@@ -27,8 +27,8 @@ const putSchema = z.object({
 		.max(80),
 });
 
-// Plantilla de puestos de tareas operativas (pestaña «Puestos»): GET la de ambos tipos de reunión y el catálogo de privilegios;
-// PUT reemplaza la de un tipo y ajusta enseguida las reuniones desde la semana en curso (sin tocar puestos ocupados).
+// Plantilla de asignaciones de tareas operativas (pestaña «Plantilla»): GET la de ambos tipos de reunión y el catálogo de privilegios;
+// PUT reemplaza la de un tipo y ajusta enseguida las reuniones desde la semana en curso (sin tocar asignaciones ocupadas).
 export async function GET() {
 	try {
 		assertCanAccessOperationalModule(await getSession());
@@ -54,12 +54,12 @@ export async function PUT(request: Request) {
 		const catalog = new Set((await loadOperationalCatalog(db)).map((p) => p.id));
 		const slots: TemplateSlot[] = parsed.data.slots.map((s) => ({ privilegeId: s.privilegeId, position: normalizePosition(s.position) }));
 		if (slots.some((s) => !catalog.has(s.privilegeId))) {
-			return NextResponse.json({ error: "invalid_privilege", message: "Uno de los puestos no es una tarea operativa." }, { status: 400 });
+			return NextResponse.json({ error: "invalid_privilege", message: "Una de las asignaciones no es una tarea operativa." }, { status: 400 });
 		}
 		const duplicate = findDuplicatePosition(slots);
 		if (duplicate) {
 			return NextResponse.json(
-				{ error: "duplicate_position", message: `El puesto «${duplicate.position}» está repetido en la misma tarea: ponle otro nombre.` },
+				{ error: "duplicate_position", message: `El nombre «${duplicate.position}» está repetido en la misma tarea: ponle otro.` },
 				{ status: 400 },
 			);
 		}

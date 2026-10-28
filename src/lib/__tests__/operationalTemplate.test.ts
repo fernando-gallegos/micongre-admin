@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findDuplicatePosition, planSlotSync, type ExistingSlot } from "@/lib/operational/template";
+import { findDuplicatePosition, planSlotSync, slotDisplayName, sortByTemplate, type ExistingSlot } from "@/lib/operational/template";
 
 let n = 0;
 function row(privilegeId: string, position: string | null, assignedUserId: string | null = null): ExistingSlot {
@@ -49,5 +49,32 @@ describe("plantilla de puestos operativos", () => {
 		expect(findDuplicatePosition([{ privilegeId: "a", position: null }, { privilegeId: "a", position: null }])).toBeNull();
 		expect(findDuplicatePosition([{ privilegeId: "a", position: "X" }, { privilegeId: "b", position: "X" }])).toBeNull();
 		expect(findDuplicatePosition([{ privilegeId: "a", position: "X" }, { privilegeId: "a", position: " X" }])?.position).toBe(" X");
+	});
+});
+
+describe("orden de la plantilla", () => {
+	it("sigue el orden de la plantilla, con las repeticiones en su lugar y lo que no está al final", () => {
+		const template = [
+			{ privilegeId: "entrada", position: null },
+			{ privilegeId: "plataforma", position: null },
+			{ privilegeId: "entrada", position: "Portón" },
+			{ privilegeId: "entrada", position: null },
+		];
+		const rows = [
+			row("entrada", "Portón"),
+			row("zoom", null),
+			row("entrada", null),
+			row("plataforma", null),
+			row("entrada", null),
+		];
+		const names: Record<string, string> = { entrada: "Acomodador de entrada", plataforma: "Plataforma", zoom: "Video" };
+		const sorted = sortByTemplate(rows, template, (r) => slotDisplayName(names[r.privilegeId], r.position));
+		expect(sorted.map((r) => slotDisplayName(names[r.privilegeId], r.position))).toEqual([
+			"Acomodador de entrada",
+			"Plataforma",
+			"Portón",
+			"Acomodador de entrada",
+			"Video",
+		]);
 	});
 });

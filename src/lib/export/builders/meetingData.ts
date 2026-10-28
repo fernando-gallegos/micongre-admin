@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, inArray, lte, ne, notInArray, sql } from "drizzle-orm";
-import { loadOperationalCatalog, loadTemplate } from "@/lib/operational/template";
+import { loadOperationalCatalog, loadTemplate, slotDisplayName, sortByTemplate } from "@/lib/operational/template";
 import type { Database } from "@/db/client";
 import {
 	CONGREGATION_ROW_ID,
@@ -216,40 +216,43 @@ export async function loadWeekend(db: Database, from: string, to: string): Promi
 }
 
 export interface OperationalRow {
+	privilegeId: string;
 	task: string;
 	person: string | null;
 	position: string | null;
 }
 
-/** Tareas operativas de una reunión (solo lectura: no crea puestos). Una reunión que aún no se abrió muestra los puestos
- * de la plantilla, sin asignar. */
+/** Tareas operativas de una reunión (solo lectura: no crea asignaciones), en el orden de la plantilla. Una reunión que aún no se
+ * abrió muestra las asignaciones de la plantilla, sin nadie. */
 export async function loadOperational(
 	db: Database,
 	meetingType: "midweek" | "weekend",
 	meetingId: string,
 ): Promise<OperationalRow[]> {
-	const rows = await db
-		.select({
-			task: privileges.name,
-			position: operationalSchedules.position,
-			person: users.fullName,
-		})
-		.from(operationalSchedules)
-		.innerJoin(privileges, eq(privileges.id, operationalSchedules.privilegeId))
-		.leftJoin(users, eq(users.id, operationalSchedules.assignedUserId))
-		.where(
-			and(
-				eq(operationalSchedules.meetingType, meetingType),
-				eq(operationalSchedules.meetingId, meetingId),
-				notInArray(operationalSchedules.privilegeId, NON_MEETING_OPERATIONAL_IDS),
+	const [rows, template] = await Promise.all([
+		db
+			.select({
+				privilegeId: operationalSchedules.privilegeId,
+				task: privileges.name,
+				position: operationalSchedules.position,
+				person: users.fullName,
+			})
+			.from(operationalSchedules)
+			.innerJoin(privileges, eq(privileges.id, operationalSchedules.privilegeId))
+			.leftJoin(users, eq(users.id, operationalSchedules.assignedUserId))
+			.where(
+				and(
+					eq(operationalSchedules.meetingType, meetingType),
+					eq(operationalSchedules.meetingId, meetingId),
+					notInArray(operationalSchedules.privilegeId, NON_MEETING_OPERATIONAL_IDS),
+				),
 			),
-		)
-		.orderBy(asc(privileges.name), asc(operationalSchedules.position));
-	if (rows.length > 0) return rows;
+		loadTemplate(db, meetingType),
+	]);
+	if (rows.length > 0) return sortByTemplate(rows, template, (r) => slotDisplayName(r.task, r.position));
 
 	const names = new Map((await loadOperationalCatalog(db)).map((p) => [p.id, p.name]));
-	return (await loadTemplate(db, meetingType))
+	return template
 		.filter((s) => names.has(s.privilegeId))
-		.map((s) => ({ task: names.get(s.privilegeId) as string, person: null, position: s.position }))
-		.sort((a, b) => a.task.localeCompare(b.task, "es") || (a.position ?? "").localeCompare(b.position ?? "", "es"));
+		.map((s) => ({ privilegeId: s.privilegeId, task: names.get(s.privilegeId) as string, person: null, position: s.position }));
 }

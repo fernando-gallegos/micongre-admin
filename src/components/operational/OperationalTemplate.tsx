@@ -22,8 +22,8 @@ interface Loaded {
 
 const TITLES: Record<MeetingType, string> = { midweek: "Entre semana", weekend: "Fin de semana" };
 
-/** Pestaña «Puestos»: qué puestos de tareas operativas lleva cada reunión. Al guardar se ajustan las reuniones desde esta semana
- * (y el job diario lo repite cada día): se agregan los puestos que falten y se quitan los que sobren, solo si nadie los ocupa. */
+/** Pestaña «Plantilla»: qué asignaciones de tareas operativas lleva cada reunión. Al guardar se ajustan las reuniones desde esta semana
+ * (y el job diario lo repite cada día): se agregan las que falten y se quitan las que sobren, solo si nadie las ocupa. */
 export function OperationalTemplate() {
 	const [data, setData] = useState<Loaded | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export function OperationalTemplate() {
 		fetch("/api/operational/template")
 			.then((r) => (r.ok ? r.json() : Promise.reject()))
 			.then((body: unknown) => setData(body as Loaded))
-			.catch(() => setError("No se pudieron cargar los puestos."));
+			.catch(() => setError("No se pudo cargar la plantilla."));
 	}, []);
 
 	if (error) return <p className="text-sm text-red-600">{error}</p>;
@@ -40,12 +40,6 @@ export function OperationalTemplate() {
 
 	return (
 		<div className="flex flex-col gap-6">
-			<p className="text-sm text-ink-soft">
-				Define los puestos que lleva cada reunión. Una tarea puede ir varias veces (por ejemplo, dos acomodadores de entrada); el
-				nombre del puesto es opcional y sirve para distinguirlos. Al guardar se ajustan las reuniones desde esta semana, y el job
-				diario lo repite cada día: agrega los puestos que falten y quita los que sobren, pero nunca uno que ya tiene a alguien
-				asignado.
-			</p>
 			{(["midweek", "weekend"] as const).map((type) => (
 				<TemplateEditor
 					key={type}
@@ -109,7 +103,7 @@ function TemplateEditor({
 			ok: true,
 			text:
 				a && a.meetings > 0
-					? `Guardado. Se ajustaron ${a.meetings} ${a.meetings === 1 ? "reunión" : "reuniones"}: ${a.added} ${a.added === 1 ? "puesto agregado" : "puestos agregados"} y ${a.removed} ${a.removed === 1 ? "quitado" : "quitados"}.`
+					? `Guardado. Se ajustaron ${a.meetings} ${a.meetings === 1 ? "reunión" : "reuniones"}: ${a.added} ${a.added === 1 ? "asignación agregada" : "asignaciones agregadas"} y ${a.removed} ${a.removed === 1 ? "quitada" : "quitadas"}.`
 					: "Guardado.",
 		});
 	}
@@ -118,7 +112,7 @@ function TemplateEditor({
 	return (
 		<section className="flex flex-col gap-2">
 			<div className="flex flex-wrap items-center gap-2">
-				<SectionLabel>{`${TITLES[type]} · ${slots.length} ${slots.length === 1 ? "puesto" : "puestos"}`}</SectionLabel>
+				<SectionLabel>{`${TITLES[type]} · ${slots.length} ${slots.length === 1 ? "asignación" : "asignaciones"}`}</SectionLabel>
 				<div className="ml-auto flex items-center gap-2">
 					{copyFrom && (
 						<IconButton label={copyFrom.label} icon={Copy} onClick={() => edit(copyFrom.slots.map((s) => ({ ...s })))} />
@@ -132,7 +126,7 @@ function TemplateEditor({
 			{message && <p className={`text-sm ${message.ok ? "text-ink-soft" : "text-red-600"}`}>{message.text}</p>}
 			{slots.length === 0 ? (
 				<Card>
-					<p className="text-sm text-ink-soft">Sin puestos: las reuniones de {TITLES[type].toLowerCase()} no llevarán tareas operativas.</p>
+					<p className="text-sm text-ink-soft">Sin asignaciones: las reuniones de {TITLES[type].toLowerCase()} no llevarán tareas operativas.</p>
 				</Card>
 			) : (
 					<List>
@@ -155,12 +149,12 @@ function TemplateEditor({
 									<input
 										value={slot.position ?? ""}
 										onChange={(e) => update(i, { position: e.target.value || null })}
-										placeholder="Puesto (opcional)"
-										aria-label="Nombre del puesto"
+										placeholder="Nombre (opcional)"
+										aria-label="Nombre de la asignación"
 										maxLength={60}
 										className="min-h-11 min-w-0 flex-1 rounded-2xl border border-border bg-surface px-3 text-base text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm"
 									/>
-									<IconButton label="Quitar puesto" icon={Trash2} tone="danger" onClick={() => edit(slots.filter((_, j) => j !== i))} />
+									<IconButton label="Quitar asignación" icon={Trash2} tone="danger" onClick={() => edit(slots.filter((_, j) => j !== i))} />
 								</div>
 							</div>
 						))}
@@ -174,7 +168,7 @@ function TemplateEditor({
 					onClick={() => edit([...slots, { privilegeId: slots[slots.length - 1]?.privilegeId ?? catalog[0].id, position: null }])}
 				>
 					<Plus size={16} />
-					Agregar puesto
+					Agregar asignación
 				</Button>
 			</div>
 		</section>

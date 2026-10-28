@@ -5,6 +5,7 @@ import { CONGREGATION_ROW_ID, congregations, midweekMeetings, weekendMeetings } 
 import { assertCanAccessOperationalModule } from "@/lib/rbac/guards";
 import { effectiveMeetingDate, type MeetingSchedules } from "@/lib/attendance/summary";
 import { addDays, parseISODate, toISODate } from "@/lib/mwb/dates";
+import { slotDisplayName } from "@/lib/operational/template";
 import { loadOperational } from "./meetingData";
 import { parseRange } from "./meetingDates";
 
@@ -72,23 +73,30 @@ export async function buildOperational(ctx: BuilderContext): Promise<ReportDoc> 
 		};
 	}
 
-	// tarea (con su puesto) → persona por reunión; el orden de las filas es el de las tareas (alfabético).
-	const rowLabels: string[] = [];
+	// Una fila por asignación de la plantilla (una tarea repetida sale en varias filas: la n-ésima de cada reunión va en la n-ésima
+	// fila), en el orden de la plantilla; si la asignación tiene nombre, ese nombre en lugar del de la tarea.
+	const rowKeys: string[] = [];
+	const labels = new Map<string, string>();
 	const cells = new Map<string, (string | null)[]>();
 	for (const [col, m] of inRange.entries()) {
+		const seen = new Map<string, number>();
 		for (const r of await loadOperational(db, m.type, m.id)) {
-			const label = r.position ? `${r.task} (${r.position})` : r.task;
-			if (!cells.has(label)) {
-				cells.set(label, inRange.map(() => null));
-				rowLabels.push(label);
+			const base = `${r.privilegeId}|${r.position ?? ""}`;
+			const n = seen.get(base) ?? 0;
+			seen.set(base, n + 1);
+			const key = `${base}|${n}`;
+			if (!cells.has(key)) {
+				cells.set(key, inRange.map(() => null));
+				labels.set(key, slotDisplayName(r.task, r.position));
+				rowKeys.push(key);
 			}
-			if (r.person) cells.get(label)![col] = r.person;
+			if (r.person) cells.get(key)![col] = r.person;
 		}
 	}
 
-	const rows = rowLabels
-		.filter((label) => cells.get(label)!.some((p) => p))
-		.map((label) => [label, ...cells.get(label)!.map((p) => p ?? EMPTY)]);
+	const rows = rowKeys
+		.filter((key) => cells.get(key)!.some((p) => p))
+		.map((key) => [labels.get(key)!, ...cells.get(key)!.map((p) => p ?? EMPTY)]);
 
 	const columns = [
 		{ label: "Asignación", width: 2.4 },

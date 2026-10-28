@@ -76,7 +76,7 @@ export function OperationalWeek() {
 				}
 			/>
 
-			<Segmented value={tab} onChange={setTab} options={[...TABS, { value: "template" as const, label: "Puestos" }]} label="Reunión" />
+			<Segmented value={tab} onChange={setTab} options={[...TABS, { value: "template" as const, label: "Plantilla" }]} label="Reunión" />
 
 			{tab === "template" ? <OperationalTemplate /> : <WeekNav weekStart={weekStart} onChange={setWeekStart} />}
 
