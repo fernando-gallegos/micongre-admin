@@ -474,7 +474,8 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 													onChange={(userId) => patchAssignment(row.id, { assistantAssigneeId: userId })}
 												/>
 											)}
-											{meeting.hasAuxRoom && (
+											{/* La sala auxiliar solo aplica a la lectura de la Biblia y a las partes de estudiante. */}
+											{meeting.hasAuxRoom && (isStudentPart || row.sectionType === "bible_reading") && (
 												<Select
 													label="Sala"
 													value={row.room}

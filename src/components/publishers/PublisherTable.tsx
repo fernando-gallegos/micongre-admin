@@ -37,6 +37,8 @@ interface PublisherRow extends PublisherData {
 	username: string | null;
 	accountStatus: string;
 	fieldServiceGroupId: string | null;
+	groupName?: string | null;
+	groupColor?: string | null;
 	appointments: Appointment[];
 	privileges: GrantedPrivilege[];
 	serviceYearHours: number | null;
@@ -348,7 +350,9 @@ export function PublisherTable({
 				)}
 				{sortedRows.map((row) => {
 					const rowIsAdmin = row.systemRole === "admin";
-					const group = groupFor(row.fieldServiceGroupId);
+					const group =
+						groupFor(row.fieldServiceGroupId) ??
+						(row.fieldServiceGroupId && row.groupName ? { id: row.fieldServiceGroupId, name: row.groupName, color: row.groupColor ?? null } : null);
 					const subtitleParts: string[] = [];
 					if (row.congregationStatus !== "active") {
 						subtitleParts.push(CONGREGATION_STATUS_LABELS[row.congregationStatus] ?? row.congregationStatus);

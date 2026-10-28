@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
+import { joinLeadsToGroup } from "@/lib/serviceGroups/members";
 import { fieldServiceGroups, users } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
 			.insert(fieldServiceGroups)
 			.values(parsed.data)
 			.returning({ id: fieldServiceGroups.id });
+		// El superintendente y el auxiliar quedan como integrantes del grupo nuevo.
+		await joinLeadsToGroup(db, created.id, [parsed.data.overseerUserId, parsed.data.assistantUserId]);
 
 		return NextResponse.json({ id: created.id }, { status: 201 });
 	} catch (error) {

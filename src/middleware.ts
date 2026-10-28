@@ -9,7 +9,9 @@ import { publicOrigin } from "@/lib/http/origin";
 import { getSetupStatus } from "@/lib/setup/status";
 
 export const config = {
-	matcher: ["/((?!_next|favicon.ico).*)"],
+	// Archivos de public/ que se piden sin sesión (logo del login/activación/setup y el service worker): fuera del middleware.
+	// En producción Cloudflare los sirve antes del Worker; en `next dev` el middleware los mandaba al login.
+	matcher: ["/((?!_next|favicon.ico|logo.svg|sw.js).*)"],
 };
 
 // Rutas que no exigen sesión. El asistente de configuración (/setup, /api/setup)

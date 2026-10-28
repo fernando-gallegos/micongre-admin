@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
+import { joinLeadsToGroup } from "@/lib/serviceGroups/members";
 import { fieldServiceGroups } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
@@ -19,7 +20,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 		}
 
 		const db = getDb();
-		await db.update(fieldServiceGroups).set(parsed.data).where(eq(fieldServiceGroups.id, id));
+		const updated = await db.update(fieldServiceGroups).set(parsed.data).where(eq(fieldServiceGroups.id, id)).returning({ id: fieldServiceGroups.id });
+		if (updated.length === 0) return NextResponse.json({ error: "not_found" }, { status: 404 });
+		// El superintendente y el auxiliar son integrantes del grupo que atienden.
+		await joinLeadsToGroup(db, id, [parsed.data.overseerUserId, parsed.data.assistantUserId]);
 
 		return NextResponse.json({ ok: true });
 	} catch (error) {

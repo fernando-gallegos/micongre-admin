@@ -46,6 +46,17 @@ export function groupReportRows(rows: GroupReportRow[]): GroupReports[] {
 	);
 }
 
+/** Una fila por persona: el join con los nombramientos de precursor la repetiría si alguien tuviera dos vigentes (auxiliar y regular);
+ * se queda la de precursor regular. Conserva el orden. */
+export function onePerPerson<T extends { userId: string; pioneerType: string | null }>(rows: T[]): T[] {
+	const byUser = new Map<string, T>();
+	for (const row of rows) {
+		const seen = byUser.get(row.userId);
+		if (!seen || (seen.pioneerType !== "regular_pioneer" && row.pioneerType === "regular_pioneer")) byUser.set(row.userId, row);
+	}
+	return rows.filter((row) => byUser.get(row.userId) === row);
+}
+
 /** La columna de horas de proyectos sale si el grupo tiene algún precursor regular (o ya hay horas de proyecto guardadas). */
 export function showProjectColumn(items: GroupReportRow[]): boolean {
 	return items.some((i) => i.pioneerType === "regular_pioneer" || (i.projectHours ?? 0) > 0);
@@ -93,5 +104,5 @@ export async function loadGroupReports(db: Database, session: Session, year: num
 		.where(and(...scope))
 		.orderBy(asc(users.fullName));
 
-	return groupReportRows(rows as GroupReportRow[]);
+	return groupReportRows(onePerPerson(rows as GroupReportRow[]));
 }

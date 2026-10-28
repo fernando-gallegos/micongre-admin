@@ -69,6 +69,7 @@ interface AssistanceRequest {
 interface PublisherOption {
 	id: string;
 	fullName: string;
+	appointments?: { appointmentType: string; endDate: string | null }[];
 }
 
 interface VisitRequest {
@@ -142,6 +143,7 @@ export function PastoralDashboard() {
 
 	const [visitRequests, setVisitRequests] = useState<VisitRequest[]>([]);
 	const [elders, setElders] = useState<ElderOption[]>([]);
+	const [confirmDelete, setConfirmDelete] = useState<VisitRequest | null>(null);
 	const [isCommittee, setIsCommittee] = useState(false);
 	const [assigningId, setAssigningId] = useState<string | null>(null);
 	const [assignElder1, setAssignElder1] = useState("");
@@ -163,16 +165,18 @@ export function PastoralDashboard() {
 			return;
 		}
 		setForbidden(false);
+		// Cada lista por separado: si no hay acceso a alguna (p. ej. Publicadores), queda vacía y el tablero sigue funcionando.
+		const get = <T,>(url: string, fallback: T): Promise<T> =>
+			fetch(url)
+				.then((r) => (r.ok ? (r.json() as Promise<T>) : fallback))
+				.catch(() => fallback);
 		const [priorityBody, aggRes, visitsRes, flagsRes, requestsRes, publishersRes] = await Promise.all([
 			priorityRes.json() as Promise<{ items: PriorityEntry[] }>,
-			fetch("/api/pastoral/monthly-aggregates").then((r) => r.json()) as Promise<{
-				months: MonthlyAggregate[];
-				pioneerAlerts: PioneerAlert[];
-			}>,
-			fetch("/api/pastoral/visits").then((r) => r.json()) as Promise<{ items: Visit[] }>,
-			fetch("/api/pastoral/flags").then((r) => r.json()) as Promise<{ items: Flag[] }>,
-			fetch("/api/assistance-requests").then((r) => r.json()) as Promise<{ items: AssistanceRequest[] }>,
-			fetch("/api/publishers").then((r) => r.json()) as Promise<{ items: PublisherOption[] }>,
+			get<{ months: MonthlyAggregate[]; pioneerAlerts: PioneerAlert[] }>("/api/pastoral/monthly-aggregates", { months: [], pioneerAlerts: [] }),
+			get<{ items: Visit[] }>("/api/pastoral/visits", { items: [] }),
+			get<{ items: Flag[] }>("/api/pastoral/flags", { items: [] }),
+			get<{ items: AssistanceRequest[] }>("/api/assistance-requests", { items: [] }),
+			get<{ items: PublisherOption[] }>("/api/publishers", { items: [] }),
 		]);
 		setPriorityMatrix(priorityBody.items);
 		setMonths(aggRes.months);
@@ -256,6 +260,7 @@ export function PastoralDashboard() {
 	}
 
 	async function cancelVisitRequest(id: string) {
+		setConfirmDelete(null);
 		await fetch(`/api/pastoral/visit-requests/${id}`, { method: "DELETE" });
 		load();
 	}
@@ -303,6 +308,11 @@ export function PastoralDashboard() {
 			</div>
 		);
 	}
+
+	// Para «Ancianos que participaron»: la lista del comité si se tiene, si no, los publicadores con nombramiento de anciano vigente.
+	const visitElders: { id: string; fullName: string }[] = elders.length
+		? elders
+		: publishers.filter((p) => p.appointments?.some((a) => a.appointmentType === "elder" && !a.endDate));
 
 	const emptyNote = (text: string) => <p className="px-1 text-sm text-ink-soft">{text}</p>;
 
@@ -438,7 +448,7 @@ export function PastoralDashboard() {
 												) : assigningId === r.id ? null : (
 													<div className="-my-1 -mr-2 flex shrink-0 items-center">
 														<IconButton label="Asignar ancianos" icon={UserPlus} tone="accent" onClick={() => openAssign(r)} />
-														<IconButton label="Eliminar" icon={Trash2} tone="danger" onClick={() => cancelVisitRequest(r.id)} />
+														<IconButton label="Eliminar" icon={Trash2} tone="danger" onClick={() => setConfirmDelete(r)} />
 													</div>
 												)}
 											</div>
@@ -579,7 +589,7 @@ export function PastoralDashboard() {
 					<div>
 						<p className="mb-1 text-sm font-medium text-ink">Ancianos que participaron</p>
 						<div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-2xl border border-border px-3 py-1">
-							{publishers.map((p) => (
+							{visitElders.map((p) => (
 								<label key={p.id} className="flex min-h-11 items-center gap-3 text-sm text-ink">
 									<input
 										type="checkbox"
@@ -662,6 +672,24 @@ export function PastoralDashboard() {
 						{assistanceSaving ? "Guardando..." : "Guardar"}
 					</Button>
 				</div>
+			</Modal>
+
+			<Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Eliminar solicitud de pastoreo">
+				{confirmDelete && (
+					<div className="flex flex-col gap-4">
+						<p className="text-sm text-ink">
+							¿Eliminar la solicitud de <span className="font-medium">{confirmDelete.publisherName}</span> ({formatShortDate(confirmDelete.requestedDate)})?
+						</p>
+						<div className="flex justify-end gap-2">
+							<Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+								Cancelar
+							</Button>
+							<Button variant="danger" onClick={() => cancelVisitRequest(confirmDelete.id)}>
+								Eliminar
+							</Button>
+						</div>
+					</div>
+				)}
 			</Modal>
 		</div>
 	);

@@ -17,7 +17,9 @@ import { eligibleFromContext, loadEligibilityContext, type EligibilityContext } 
 import { NON_MEETING_OPERATIONAL_IDS, PRIVILEGE_IDS, SECTION_GROUP_BY_TYPE, SECTION_GROUP_LABELS, SECTION_LABELS } from "@/lib/rbac/roles";
 import { getStudentPartRule } from "@/lib/rbac/studentParts";
 import { proposeAssignments, type SlotProposal, type SlotSpec } from "./suggest";
-import { loadAssignmentStats, midweekTypeKey, operationalTypeKey, WEEKEND_TYPE_KEYS, type AssignmentStats } from "./stats";
+import { effectiveMeetingDate } from "@/lib/attendance/summary";
+import { addDays, parseISODate, toISODate } from "@/lib/mwb/dates";
+import { loadAssignmentStats, midweekTypeKey, readMeetingSchedules, operationalTypeKey, WEEKEND_TYPE_KEYS, type AssignmentStats } from "./stats";
 
 export type AutoAssignModule = "midweek" | "weekend" | "operational-midweek" | "operational-weekend";
 
@@ -184,6 +186,16 @@ async function planOperational(db: Database, meetingType: "midweek" | "weekend",
 	};
 }
 
+/** Día anterior a la fecha real de la reunión (según el día de reunión configurado); undefined si no existe. */
+async function dayBeforeMeeting(db: Database, module: AutoAssignModule, meetingId: string): Promise<string | undefined> {
+	const type: "midweek" | "weekend" = module === "midweek" || module === "operational-midweek" ? "midweek" : "weekend";
+	const table = type === "midweek" ? midweekMeetings : weekendMeetings;
+	const [row] = await db.select({ date: table.meetingDate }).from(table).where(eq(table.id, meetingId)).limit(1);
+	if (!row) return undefined;
+	const real = effectiveMeetingDate(row.date, type, await readMeetingSchedules(db));
+	return toISODate(addDays(parseISODate(real), -1));
+}
+
 /** Propuesta para una reunión: una persona por casilla vacía (más la lista de candidatos con sus números de los últimos 3 meses). */
 export async function suggestForMeeting(
 	db: Database,
@@ -191,9 +203,12 @@ export async function suggestForMeeting(
 	meetingId: string,
 	asOf?: string,
 ): Promise<AutoAssignResult> {
+	// Las estadísticas cuentan hasta el día antes de ESA reunión (no hasta hoy): al planear semanas futuras también pesa lo que ya
+	// quedó asignado entre hoy y esa reunión, para no proponer a la misma persona varias semanas seguidas.
+	const statsAsOf = asOf ?? (await dayBeforeMeeting(db, module, meetingId));
 	const [ctx, stats, plan] = await Promise.all([
 		loadEligibilityContext(db),
-		loadAssignmentStats(db, asOf),
+		loadAssignmentStats(db, statsAsOf),
 		module === "midweek"
 			? planMidweek(db, meetingId)
 			: module === "weekend"

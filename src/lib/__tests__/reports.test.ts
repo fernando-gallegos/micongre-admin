@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { clampProjectHours, maxProjectHours } from "@/lib/reports/projectHours";
-import { groupReportRows, NO_GROUP_NAME, showProjectColumn, type GroupReportRow } from "@/lib/reports/groups";
+import { groupReportRows, NO_GROUP_NAME, onePerPerson, showProjectColumn, type GroupReportRow } from "@/lib/reports/groups";
 
 function row(over: Partial<GroupReportRow>): GroupReportRow {
 	return {
@@ -46,5 +46,19 @@ describe("informes por grupo", () => {
 		expect(showProjectColumn([row({}), row({ pioneerType: "auxiliary_pioneer" })])).toBe(false);
 		expect(showProjectColumn([row({ pioneerType: "regular_pioneer" })])).toBe(true);
 		expect(showProjectColumn([row({ projectHours: 4 })])).toBe(true);
+	});
+});
+
+describe("una fila por persona", () => {
+	it("con dos nombramientos de precursor vigentes queda una sola fila (la de regular) y se conserva el orden", () => {
+		const rows = [
+			row({ userId: "a", fullName: "Ana", pioneerType: "auxiliary_pioneer" }),
+			row({ userId: "b", fullName: "Beto" }),
+			row({ userId: "a", fullName: "Ana", pioneerType: "regular_pioneer" }),
+		];
+		expect(onePerPerson(rows).map((r) => [r.userId, r.pioneerType])).toEqual([
+			["b", null],
+			["a", "regular_pioneer"],
+		]);
 	});
 });

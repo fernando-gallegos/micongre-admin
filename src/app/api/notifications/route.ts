@@ -9,6 +9,7 @@ import { RbacError } from "@/lib/rbac/errors";
 import { assertCanAccessNotificationsModule } from "@/lib/rbac/guards";
 import { PRIVILEGE_CODES } from "@/lib/rbac/roles";
 import { notHiddenAdmin } from "@/lib/rbac/visibility";
+import { chunked } from "@/lib/cleaning/meetings";
 import { createNotificationSchema } from "@/lib/validation/notifications";
 
 // Historial de envío: un admin ve todo lo enviado por cualquiera (necesita
@@ -81,6 +82,14 @@ export async function POST(request: Request) {
 			if (!isAdmin && !session.privilegeCodes.includes(PRIVILEGE_CODES.NOTIFY_PUBLISHERS)) {
 				throw new RbacError("No tienes permiso para enviar notificaciones a publicadores.");
 			}
+			// Solo destinatarios que existen (un id inexistente rompía la clave foránea con un 500 y dejaba el aviso huérfano).
+			const wanted = [...new Set(parsed.data.recipientUserIds)];
+			const existing = (
+				await Promise.all(chunked(wanted).map((ids) => db.select({ id: users.id }).from(users).where(inArray(users.id, ids))))
+			)
+				.flat()
+				.map((u) => u.id);
+			if (existing.length === 0) return NextResponse.json({ error: "no_recipients" }, { status: 400 });
 			const [notification] = await db
 				.insert(notifications)
 				.values({
@@ -92,8 +101,8 @@ export async function POST(request: Request) {
 				.returning({ id: notifications.id });
 			await db
 				.insert(notificationRecipients)
-				.values(parsed.data.recipientUserIds.map((userId) => ({ notificationId: notification.id, userId })));
-			await notifyUsers(db, parsed.data.recipientUserIds, {
+				.values(existing.map((userId) => ({ notificationId: notification.id, userId })));
+			await notifyUsers(db, existing, {
 				title: `${session.fullName} te envió una notificación`,
 				body: parsed.data.message,
 				url: "/panel",

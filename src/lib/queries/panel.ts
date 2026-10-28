@@ -23,7 +23,7 @@ import {
 	weekendMeetings,
 } from "@/db/schema";
 import { CLEANING_KIND_LABEL, CLEANING_MEETING_LABEL, OWN_CONGREGATION_LABEL } from "@/lib/cleaning/labels";
-import { chunked, getCleaningMeetings } from "@/lib/cleaning/meetings";
+import { chunked, getCleaningMeetings, isMeetingCancelled } from "@/lib/cleaning/meetings";
 import { loadAssignees } from "@/lib/cleaning/tasks";
 import { time12 } from "@/lib/export/builders/meetingDates";
 import { addDays, parseISODate, toISODate } from "@/lib/mwb/dates";
@@ -59,12 +59,18 @@ export interface PanelAssignment {
  * (partes de la reunión de entre semana, roles de fin de semana, tareas
  * operativas) en una sola lista — el panel personal no necesita saber de la
  * naturaleza polimórfica de operational_schedules por debajo. */
+/** Fecha (AAAA-MM-DD) de un instante en hora de Nicaragua (UTC−6, sin horario de verano): en UTC, lo asignado después de las 6 p. m. salía con fecha del día siguiente. */
+function nicaraguaDate(instant: Date): string {
+	return new Date(instant.getTime() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
 export async function getUserAssignments(db: Database, userId: string): Promise<PanelAssignment[]> {
 	const assignments: PanelAssignment[] = [];
 
 	const midweekRows = await db
 		.select({
 			meetingDate: midweekMeetings.meetingDate,
+			status: midweekMeetings.status,
 			sectionType: midweekAssignments.sectionType,
 			sectionTitle: midweekAssignments.sectionTitle,
 			mainAssigneeId: midweekAssignments.mainAssigneeId,
@@ -76,15 +82,35 @@ export async function getUserAssignments(db: Database, userId: string): Promise<
 		);
 
 	for (const row of midweekRows) {
+		if (isMeetingCancelled(row.status)) continue;
 		const base = SECTION_LABELS[row.sectionType] ?? row.sectionType;
 		const label = row.sectionTitle ? `${base} — ${row.sectionTitle}` : base;
 		const role = row.mainAssigneeId === userId ? "" : " (ayudante)";
 		assignments.push({ date: row.meetingDate, meetingType: "midweek", label: `${label}${role}` });
 	}
 
+	// Presidente y oración inicial viven en la reunión, no en midweek_assignments.
+	const midweekRoles = await db
+		.select({
+			meetingDate: midweekMeetings.meetingDate,
+			status: midweekMeetings.status,
+			chairmanUserId: midweekMeetings.chairmanUserId,
+			openingPrayerUserId: midweekMeetings.openingPrayerUserId,
+		})
+		.from(midweekMeetings)
+		.where(or(eq(midweekMeetings.chairmanUserId, userId), eq(midweekMeetings.openingPrayerUserId, userId)));
+	for (const row of midweekRoles) {
+		if (isMeetingCancelled(row.status)) continue;
+		const roles: string[] = [];
+		if (row.chairmanUserId === userId) roles.push("Presidente");
+		if (row.openingPrayerUserId === userId) roles.push("Oración inicial");
+		assignments.push({ date: row.meetingDate, meetingType: "midweek", label: roles.join(" · ") });
+	}
+
 	const weekendRows = await db
 		.select({
 			meetingDate: weekendMeetings.meetingDate,
+			status: weekendMeetings.status,
 			chairmanUserId: weekendMeetings.chairmanUserId,
 			speakerUserId: speakers.userId,
 			watchtowerConductorId: weekendMeetings.watchtowerConductorId,
@@ -104,6 +130,7 @@ export async function getUserAssignments(db: Database, userId: string): Promise<
 		);
 
 	for (const row of weekendRows) {
+		if (isMeetingCancelled(row.status)) continue;
 		const roles: string[] = [];
 		if (row.chairmanUserId === userId) roles.push("Presidente");
 		if (row.speakerUserId === userId) roles.push("Orador del discurso público");
@@ -130,13 +157,13 @@ export async function getUserAssignments(db: Database, userId: string): Promise<
 
 		const [midweekDates, weekendDates] = await Promise.all([
 			midweekIds.length
-				? db.select({ id: midweekMeetings.id, meetingDate: midweekMeetings.meetingDate }).from(midweekMeetings).where(inArray(midweekMeetings.id, midweekIds))
+				? db.select({ id: midweekMeetings.id, meetingDate: midweekMeetings.meetingDate, status: midweekMeetings.status }).from(midweekMeetings).where(inArray(midweekMeetings.id, midweekIds))
 				: Promise.resolve([]),
 			weekendIds.length
-				? db.select({ id: weekendMeetings.id, meetingDate: weekendMeetings.meetingDate }).from(weekendMeetings).where(inArray(weekendMeetings.id, weekendIds))
+				? db.select({ id: weekendMeetings.id, meetingDate: weekendMeetings.meetingDate, status: weekendMeetings.status }).from(weekendMeetings).where(inArray(weekendMeetings.id, weekendIds))
 				: Promise.resolve([]),
 		]);
-		const dateById = new Map([...midweekDates, ...weekendDates].map((m) => [m.id, m.meetingDate]));
+		const dateById = new Map([...midweekDates, ...weekendDates].filter((m) => !isMeetingCancelled(m.status)).map((m) => [m.id, m.meetingDate]));
 
 		for (const row of operationalRows) {
 			const date = dateById.get(row.meetingId);
@@ -276,7 +303,7 @@ export async function getUserAssignments(db: Database, userId: string): Promise<
 		const title = row.name ? `Territorio ${row.number} — ${row.name}` : `Territorio ${row.number}`;
 		const resolvedLabel = row.status === "completed" ? "completado" : "devuelto";
 		assignments.push({
-			date: (row.status === "assigned" ? row.assignedAt : (row.resolvedAt ?? row.assignedAt)).toISOString().slice(0, 10),
+			date: nicaraguaDate(row.status === "assigned" ? row.assignedAt : (row.resolvedAt ?? row.assignedAt)),
 			meetingType: "territory",
 			label: row.status === "assigned" ? title : `${title} (${resolvedLabel})`,
 			territory: { assignmentId: row.assignmentId, territoryId: row.territoryId, status: row.status, comment: row.comment },

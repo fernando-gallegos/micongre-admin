@@ -19,7 +19,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
 		const db = getDb();
 		const [meeting] = await db
-			.select({ meetingDate: midweekMeetings.meetingDate, chairmanUserId: midweekMeetings.chairmanUserId })
+			.select({
+				meetingDate: midweekMeetings.meetingDate,
+				chairmanUserId: midweekMeetings.chairmanUserId,
+				openingPrayerUserId: midweekMeetings.openingPrayerUserId,
+			})
 			.from(midweekMeetings)
 			.where(eq(midweekMeetings.id, id))
 			.limit(1);
@@ -31,34 +35,31 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 			.where(eq(midweekAssignments.meetingId, id))
 			.orderBy(asc(midweekAssignments.sequenceOrder));
 
+		// Un solo aviso por persona con todas sus partes (presidente, oración inicial y las del programa), y «enviado (N)» cuenta personas.
 		const date = formatShortDate(meeting.meetingDate);
-		const pushes: Promise<void>[] = [];
-		if (meeting.chairmanUserId) {
-			pushes.push(
-				notifyUser(db, meeting.chairmanUserId, {
-					title: "Tienes una asignación en la reunión de entre semana",
-					body: `Presidente · ${date}`,
-					url: "/panel",
-				}),
-			);
-		}
+		const partsByUser = new Map<string, string[]>();
+		const add = (userId: string | null, label: string) => {
+			if (userId) partsByUser.set(userId, [...(partsByUser.get(userId) ?? []), label]);
+		};
+		add(meeting.chairmanUserId, "Presidente");
+		add(meeting.openingPrayerUserId, "Oración inicial");
 		for (const row of rows) {
 			const base = (SECTION_LABELS as Record<string, string>)[row.sectionType] ?? row.sectionType;
 			const label = row.sectionTitle ? `${base} — ${row.sectionTitle}` : base;
-			for (const userId of [row.mainAssigneeId, row.assistantAssigneeId]) {
-				if (!userId) continue;
-				pushes.push(
-					notifyUser(db, userId, {
-						title: "Tienes una asignación en la reunión de entre semana",
-						body: `${label} · ${date}`,
-						url: "/panel",
-					}),
-				);
-			}
+			add(row.mainAssigneeId, label);
+			add(row.assistantAssigneeId, `${label} (ayudante)`);
 		}
-		await Promise.all(pushes);
+		await Promise.all(
+			[...partsByUser].map(([userId, parts]) =>
+				notifyUser(db, userId, {
+					title: "Tienes una asignación en la reunión de entre semana",
+					body: `${parts.join(" · ")} · ${date}`,
+					url: "/panel",
+				}),
+			),
+		);
 
-		return NextResponse.json({ ok: true, sent: pushes.length });
+		return NextResponse.json({ ok: true, sent: partsByUser.size });
 	} catch (error) {
 		return errorResponse(error);
 	}

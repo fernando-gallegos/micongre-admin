@@ -31,8 +31,13 @@ const MONTH_NAMES = [
 ];
 
 const now = new Date();
-const TH = "px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
-const TD = "px-2 py-2 text-center text-sm text-ink";
+// Alineación aparte: text-center y text-left juntos no se anulan por orden de clase (gana el que va después en el CSS).
+const TH_BASE = "px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
+const TD_BASE = "px-2 py-2 text-sm text-ink";
+const TH = `${TH_BASE} text-center`;
+const TD = `${TD_BASE} text-center`;
+const THL = `${TH_BASE} text-left`;
+const TDL = `${TD_BASE} text-left`;
 
 function num(value: number | null | undefined) {
 	return value ? String(value) : "";
@@ -120,19 +125,19 @@ export function GroupReportsTable() {
 							<table className="w-full min-w-[600px] border-collapse">
 								<thead>
 									<tr className="border-b border-line">
-										<th className={`${TH} text-left`}>Nombre</th>
+										<th className={THL}>Nombre</th>
 										<th className={TH}>Participó</th>
 										<th className={TH}>Cursos</th>
 										<th className={TH}>Aux.</th>
 										<th className={TH}>Horas</th>
 										{showProject && <th className={TH}>Proyecto</th>}
-										<th className={`${TH} text-left`}>Notas</th>
+										<th className={THL}>Notas</th>
 									</tr>
 								</thead>
 								<tbody>
 									{group.items.map((i) => (
 										<tr key={i.userId} className="border-b border-line last:border-0">
-											<td className={`${TD} text-left`}>
+											<td className={TDL}>
 												<span className={i.reportId ? "" : "text-ink-soft"}>{i.fullName}</span>
 												{!i.reportId && <span className="ml-2 text-xs font-semibold text-warn">Falta</span>}
 											</td>
@@ -141,7 +146,7 @@ export function GroupReportsTable() {
 											<td className={TD}>{i.reportId && i.isAuxiliaryPioneerThisMonth ? <Check className="mx-auto size-4 text-accent" /> : ""}</td>
 											<td className={TD}>{num(i.hours)}</td>
 											{showProject && <td className={TD}>{num(i.projectHours)}</td>}
-											<td className={`${TD} max-w-[200px] truncate text-left text-xs text-ink-soft`} title={i.comments ?? undefined}>
+											<td className="max-w-[200px] truncate px-2 py-2 text-left text-xs text-ink-soft" title={i.comments ?? undefined}>
 												{i.comments ?? ""}
 											</td>
 										</tr>
@@ -149,7 +154,7 @@ export function GroupReportsTable() {
 								</tbody>
 								<tfoot>
 									<tr className="border-t border-line bg-surface-alt">
-										<td className={`${TD} text-left font-semibold`}>Total</td>
+										<td className={`${TDL} font-semibold`}>Total</td>
 										<td className={TD}>{group.items.filter((i) => i.reportId && i.participatedInMinistry).length}</td>
 										<td className={`${TD} font-semibold`}>{totalStudies || ""}</td>
 										<td className={TD}>{group.items.filter((i) => i.reportId && i.isAuxiliaryPioneerThisMonth).length || ""}</td>

@@ -58,8 +58,9 @@ export function PrivilegesCard({
 		if (!modalOpen || readOnly) return;
 		setChecked(new Set(activeGranted.map((p) => p.privilegeId)));
 		fetch("/api/privileges")
-			.then((r) => r.json())
-			.then((body: unknown) => setCatalog((body as { items: PrivilegeOption[] }).items));
+			.then((r) => (r.ok ? r.json() : { items: [] }))
+			.then((body: unknown) => setCatalog((body as { items?: PrivilegeOption[] }).items ?? []))
+			.catch(() => setCatalog([]));
 		// activeGranted se deriva de una prop que cambia por referencia en cada
 		// render del padre — comparamos por el modal abriéndose, no por su valor.
 		// eslint-disable-next-line react-hooks/exhaustive-deps

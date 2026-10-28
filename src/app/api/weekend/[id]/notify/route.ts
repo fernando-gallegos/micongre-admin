@@ -32,17 +32,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 			if (speaker?.kind === "local" && speaker.userId) targets.push([speaker.userId, "Discurso público"]);
 		}
 
+		// Un solo aviso por persona con todos sus roles; «enviado (N)» cuenta personas.
+		const rolesByUser = new Map<string, string[]>();
+		for (const [userId, role] of targets) rolesByUser.set(userId, [...(rolesByUser.get(userId) ?? []), role]);
 		await Promise.all(
-			targets.map(([userId, role]) =>
+			[...rolesByUser].map(([userId, roles]) =>
 				notifyUser(db, userId, {
 					title: "Tienes una asignación en la reunión de fin de semana",
-					body: `${role} · ${date}`,
+					body: `${roles.join(" · ")} · ${date}`,
 					url: "/panel",
 				}),
 			),
 		);
 
-		return NextResponse.json({ ok: true, sent: targets.length });
+		return NextResponse.json({ ok: true, sent: rolesByUser.size });
 	} catch (error) {
 		return errorResponse(error);
 	}

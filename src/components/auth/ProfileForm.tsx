@@ -27,12 +27,14 @@ export function ProfileForm() {
 
 	useEffect(() => {
 		fetch("/api/auth/me")
-			.then((r) => r.json())
+			.then((r) => (r.ok ? r.json() : null))
 			.then((body: unknown) => {
-				const data = body as { fullName: string; username: string | null };
-				setFullName(data.fullName);
+				if (!body) return;
+				const data = body as { fullName?: string; username?: string | null };
+				setFullName(data.fullName ?? "");
 				setUsername(data.username ?? "");
 			})
+			.catch(() => {})
 			.finally(() => setLoading(false));
 	}, []);
 

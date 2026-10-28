@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Download } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { IconButton, PageHeader } from "@/components/ui/Layout";
@@ -22,11 +22,16 @@ export function MidweekList() {
 
 	const weekEnd = toISODate(addDays(new Date(`${weekStart}T00:00:00Z`), 6));
 
+	// Cada carga lleva un número: si mientras tanto se pidió otra semana, la respuesta vieja se descarta.
+	const loadSeq = useRef(0);
 	const load = useCallback(async () => {
+		const seq = ++loadSeq.current;
 		setLoading(true);
 		const response = await fetch(`/api/midweek?from=${weekStart}&to=${weekEnd}`);
+		if (seq !== loadSeq.current) return;
 		if (response.ok) {
 			const body = (await response.json()) as { items: MeetingRow[] };
+			if (seq !== loadSeq.current) return;
 			setRows(body.items);
 		}
 		setLoading(false);

@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import {
+	fieldServiceGroups,
 	CONGREGATION_STATUSES,
 	publicCongregationStatus,
 	splitCongregationStatus,
@@ -89,10 +90,13 @@ export async function GET(request: Request) {
 				theocraticStatus: users.theocraticStatus,
 				accountStatus: users.accountStatus,
 				fieldServiceGroupId: users.fieldServiceGroupId,
+				groupName: fieldServiceGroups.name,
+				groupColor: fieldServiceGroups.color,
 				systemRole: users.systemRole,
 				isHiddenAdmin: users.isHiddenAdmin,
 			})
 			.from(users)
+			.leftJoin(fieldServiceGroups, eq(fieldServiceGroups.id, users.fieldServiceGroupId))
 			.where(conditions.length ? and(...conditions) : undefined)
 			.orderBy(asc(users.fullName))
 			.limit(PAGE_SIZE)

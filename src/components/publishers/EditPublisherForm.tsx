@@ -72,14 +72,17 @@ export function EditPublisherForm({
 		if (!modalOpen) return;
 		setForm(publisher);
 		setError(null);
+		// Sin acceso a alguno de los dos módulos (403), su lista queda vacía en vez de romper el formulario.
 		fetch("/api/publishers")
-			.then((r) => r.json())
+			.then((r) => (r.ok ? r.json() : { items: [] }))
 			.then((body: unknown) =>
-				setPublishers(((body as { items: PublisherOption[] }).items).filter((p) => p.id !== publisher.id)),
-			);
+				setPublishers(((body as { items?: PublisherOption[] }).items ?? []).filter((p) => p.id !== publisher.id)),
+			)
+			.catch(() => setPublishers([]));
 		fetch("/api/households")
-			.then((r) => r.json())
-			.then((body: unknown) => setHouseholds((body as { items: HouseholdOption[] }).items));
+			.then((r) => (r.ok ? r.json() : { items: [] }))
+			.then((body: unknown) => setHouseholds((body as { items?: HouseholdOption[] }).items ?? []))
+			.catch(() => setHouseholds([]));
 		// publisher es una prop que cambia por referencia en cada render del
 		// padre — solo nos importa resincronizar el formulario al abrir el modal.
 		// eslint-disable-next-line react-hooks/exhaustive-deps

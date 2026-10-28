@@ -9,7 +9,7 @@ import { SectionLabel } from "@/components/ui/Layout";
 import { Modal } from "@/components/ui/Modal";
 import { RESET_CONFIRMATION } from "@/lib/backup/constants";
 
-type Phase = "idle" | "backup" | "wipe" | "done";
+type Phase = "idle" | "backup" | "saved" | "wipe" | "done";
 
 function backupFileName() {
 	const d = new Date();
@@ -41,6 +41,8 @@ export function DeleteAllDataCard() {
 
 	const [downloading, setDownloading] = useState(false);
 	const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+	const [backupName, setBackupName] = useState("");
+	const [backupSaved, setBackupSaved] = useState(false);
 
 	// Respaldo suelto, sin borrar nada.
 	async function downloadOnly() {
@@ -65,6 +67,7 @@ export function DeleteAllDataCard() {
 
 	function close() {
 		if (busy || phase === "done") return;
+		setBackupSaved(false);
 		setOpen(false);
 		setConfirmText("");
 		setError(null);
@@ -77,16 +80,22 @@ export function DeleteAllDataCard() {
 		try {
 			const backup = await fetch("/api/congregation/backup");
 			if (!backup.ok) throw new Error("backup");
-			downloadBlob(await backup.blob(), backupFileName());
+			const name = backupFileName();
+			downloadBlob(await backup.blob(), name);
+			setBackupName(name);
 		} catch {
 			setPhase("idle");
 			setError("No se pudo generar el respaldo, así que no se borró nada. Intenta de nuevo.");
 			return;
 		}
+		// No se borra hasta que la persona confirme que el archivo quedó guardado (una descarga bloqueada o cancelada no avisa).
+		setBackupSaved(false);
+		setPhase("saved");
+	}
 
+	async function wipe() {
+		setError(null);
 		setPhase("wipe");
-		// Pausa breve para que el navegador inicie la descarga antes de borrar.
-		await new Promise((r) => setTimeout(r, 1200));
 		try {
 			const res = await fetch("/api/congregation/reset", {
 				method: "POST",
@@ -156,6 +165,21 @@ export function DeleteAllDataCard() {
 							disabled={busy}
 							autoComplete="off"
 						/>
+						{phase === "saved" && (
+							<div className="flex flex-col gap-2 rounded-lg bg-surface-alt p-3 text-sm text-ink">
+								<p>
+									Se descargó el respaldo <span className="font-medium">{backupName}</span>. Búscalo en tus Descargas y
+									comprueba que se guardó antes de seguir: sin él no se pueden recuperar los datos.
+								</p>
+								<label className="flex items-center gap-2">
+									<input type="checkbox" checked={backupSaved} onChange={(e) => setBackupSaved(e.target.checked)} />
+									Confirmo que el respaldo está guardado en un lugar seguro
+								</label>
+								<button type="button" onClick={run} className="self-start text-sm font-medium text-accent hover:underline">
+									Volver a descargar el respaldo
+								</button>
+							</div>
+						)}
 						{error && <p className="text-sm text-red-600">{error}</p>}
 						{busy && (
 							<p className="flex items-center gap-2 text-sm text-ink-soft">
@@ -167,9 +191,15 @@ export function DeleteAllDataCard() {
 							<Button variant="ghost" onClick={close} disabled={busy}>
 								Cancelar
 							</Button>
-							<Button variant="danger" onClick={run} disabled={!confirmed || busy}>
-								Descargar respaldo y borrar todo
-							</Button>
+							{phase === "saved" ? (
+								<Button variant="danger" onClick={wipe} disabled={!confirmed || !backupSaved || busy}>
+									Borrar todo ahora
+								</Button>
+							) : (
+								<Button variant="danger" onClick={run} disabled={!confirmed || busy}>
+									Descargar respaldo
+								</Button>
+							)}
 						</div>
 					</div>
 				)}

@@ -88,6 +88,7 @@ export function CoVisitHub() {
 	const [recForm, setRecForm] = useState(EMPTY_RECOMMENDATION_FORM);
 	const [qualifications, setQualifications] = useState<Record<string, boolean>>({});
 	const [recSaving, setRecSaving] = useState(false);
+	const [recPanelKey, setRecPanelKey] = useState(0);
 
 	const load = useCallback(async () => {
 		const [visitsRes, publishersRes] = await Promise.all([fetch("/api/co-visit/schedules"), fetch("/api/publishers")]);
@@ -214,6 +215,8 @@ export function CoVisitHub() {
 		});
 		setRecSaving(false);
 		setRecModalOpen(false);
+		// El panel de decisiones (S-62) tiene su propio estado: se vuelve a montar para que muestre la recomendación nueva.
+		setRecPanelKey((k) => k + 1);
 	}
 
 	// Solo varones que aún no son ancianos pueden ser recomendados.
@@ -370,7 +373,7 @@ export function CoVisitHub() {
 						</section>
 					)}
 
-					{tab === "s62" && <RecommendationsDecisionPanel visitId={selectedVisit.id} />}
+					{tab === "s62" && <RecommendationsDecisionPanel key={recPanelKey} visitId={selectedVisit.id} />}
 				</>
 			)}
 

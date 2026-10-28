@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { serviceReports, theocraticAppointments, users } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
+import { onePerPerson } from "@/lib/reports/groups";
 import { clampProjectHours } from "@/lib/reports/projectHours";
 import { getPioneerAppointmentType } from "@/lib/rbac/eligibility";
 import { assertCanManageReport, getReportsGroupIds } from "@/lib/rbac/guards";
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
 			.where(and(...scopeConditions))
 			.orderBy(asc(users.fullName));
 
-		return NextResponse.json({ items: rows, year, month });
+		return NextResponse.json({ items: onePerPerson(rows), year, month });
 	} catch (error) {
 		return errorResponse(error);
 	}

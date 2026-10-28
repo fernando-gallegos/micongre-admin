@@ -128,6 +128,7 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 	const [reportTheme, setReportTheme] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
+	const [saveError, setSaveError] = useState<string | null>(null);
 
 	useEffect(() => {
 		fetch("/api/congregation").then(async (congRes) => {
@@ -151,7 +152,8 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 	async function handleSave() {
 		if (!form) return;
 		setSaving(true);
-		await fetch("/api/congregation", {
+		setSaveError(null);
+		const response = await fetch("/api/congregation", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -189,6 +191,14 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 			}),
 		});
 		setSaving(false);
+		if (!response.ok) {
+			// p. ej. un enlace sin https: se dice en vez de mostrar «Guardado.».
+			const body = (await response.json().catch(() => null)) as { error?: string; details?: { fieldErrors?: Record<string, string[]> } } | null;
+			const fields = Object.keys(body?.details?.fieldErrors ?? {});
+			setSaveError(fields.length ? `No se guardó: revisa ${fields.join(", ")} (los enlaces deben empezar con https://).` : "No se pudo guardar. Intenta de nuevo.");
+			setSaved(false);
+			return;
+		}
 		setSaved(true);
 	}
 
@@ -422,6 +432,7 @@ export function CongregationSettingsForm({ isAdmin = false }: { isAdmin?: boolea
 					{saving ? "Guardando..." : "Guardar"}
 				</Button>
 				{saved && <span className="text-sm text-ink-soft">Guardado.</span>}
+				{saveError && <span className="text-sm text-warn">{saveError}</span>}
 			</div>
 
 			{isAdmin && <JobsCard />}
