@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, ne, notInArray, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import {
 	CONGREGATION_ROW_ID,
@@ -15,7 +15,7 @@ import {
 	users,
 	weekendMeetings,
 } from "@/db/schema";
-import { PRIVILEGE_IDS } from "@/lib/rbac/roles";
+import { NON_MEETING_OPERATIONAL_IDS, PRIVILEGE_IDS } from "@/lib/rbac/roles";
 import { dayLabel, time12 } from "./meetingDates";
 
 export const UNASSIGNED = "Sin asignar";
@@ -230,7 +230,7 @@ export async function loadOperational(
 	const tasks = await db
 		.select({ id: privileges.id, name: privileges.name })
 		.from(privileges)
-		.where(and(eq(privileges.category, "operational"), ne(privileges.id, PRIVILEGE_IDS.OPERATIONAL_ACCESS)))
+		.where(and(eq(privileges.category, "operational"), notInArray(privileges.id, NON_MEETING_OPERATIONAL_IDS)))
 		.orderBy(asc(privileges.name));
 	const rows = await db
 		.select({

@@ -47,6 +47,7 @@ export function AssignedPastoralVisits({ onChange }: { onChange?: () => void }) 
 	const [saving, setSaving] = useState(false);
 	const [newDate, setNewDate] = useState("");
 	const [newNotes, setNewNotes] = useState("");
+	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -62,7 +63,8 @@ export function AssignedPastoralVisits({ onChange }: { onChange?: () => void }) 
 	async function confirmStatus() {
 		if (!confirming) return;
 		setSaving(true);
-		await fetch(`/api/pastoral/visit-requests/${confirming.item.id}/status`, {
+		setError(null);
+		const response = await fetch(`/api/pastoral/visit-requests/${confirming.item.id}/status`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(
@@ -72,6 +74,11 @@ export function AssignedPastoralVisits({ onChange }: { onChange?: () => void }) 
 			),
 		});
 		setSaving(false);
+		// Si el servidor lo rechaza (p. ej. fecha inválida), el diálogo sigue abierto y se dice por qué.
+		if (!response.ok) {
+			setError("No se pudo guardar. Revisa la fecha e intenta de nuevo.");
+			return;
+		}
 		setConfirming(null);
 		load();
 		onChange?.();
@@ -110,6 +117,7 @@ export function AssignedPastoralVisits({ onChange }: { onChange?: () => void }) 
 											onClick={() => {
 												setNewDate("");
 												setNewNotes(opt.value === "postponed" ? (item.notes ?? "") : "");
+												setError(null);
 												setConfirming({ item, status: opt.value });
 											}}
 										/>
@@ -135,6 +143,7 @@ export function AssignedPastoralVisits({ onChange }: { onChange?: () => void }) 
 								<p className="text-xs text-ink-soft">Se crea otro pastoreo para esa fecha, con el mismo publicador y los mismos ancianos.</p>
 							</>
 						)}
+						{error && <p className="text-sm text-warn">{error}</p>}
 						<div className="flex justify-end gap-2">
 							<Button variant="secondary" onClick={() => setConfirming(null)} disabled={saving}>
 								Cancelar

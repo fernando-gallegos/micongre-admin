@@ -14,7 +14,7 @@ import {
 	weekendMeetings,
 } from "@/db/schema";
 import { eligibleFromContext, loadEligibilityContext, type EligibilityContext } from "@/lib/rbac/eligibility";
-import { PRIVILEGE_IDS, SECTION_GROUP_BY_TYPE, SECTION_GROUP_LABELS, SECTION_LABELS } from "@/lib/rbac/roles";
+import { NON_MEETING_OPERATIONAL_IDS, PRIVILEGE_IDS, SECTION_GROUP_BY_TYPE, SECTION_GROUP_LABELS, SECTION_LABELS } from "@/lib/rbac/roles";
 import { getStudentPartRule } from "@/lib/rbac/studentParts";
 import { proposeAssignments, type SlotProposal, type SlotSpec } from "./suggest";
 import { loadAssignmentStats, midweekTypeKey, operationalTypeKey, WEEKEND_TYPE_KEYS, type AssignmentStats } from "./stats";
@@ -35,7 +35,7 @@ interface Plan {
 	softBusy: string[];
 }
 
-const NOT_AUTOASSIGNED_OPERATIONAL: string[] = [PRIVILEGE_IDS.TERRITORY_ASSIGNABLE, PRIVILEGE_IDS.PUBLIC_PREACHING_ASSIGNABLE];
+const NOT_AUTOASSIGNED_OPERATIONAL: string[] = NON_MEETING_OPERATIONAL_IDS;
 
 const present = (ids: (string | null | undefined)[]) => ids.filter((v): v is string => !!v);
 

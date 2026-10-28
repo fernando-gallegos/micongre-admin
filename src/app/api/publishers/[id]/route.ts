@@ -1,13 +1,15 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { publicCongregationStatus, splitCongregationStatus, theocraticAppointments, userPrivileges, privileges, users } from "@/db/schema";
+import { publicCongregationStatus, splitCongregationStatus, theocraticAppointments, userPrivileges, privileges, refreshTokens, users } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { RbacError } from "@/lib/rbac/errors";
 import { assertCanManagePublisher, canDeletePublishers } from "@/lib/rbac/guards";
 import { PRIVILEGE_CODES } from "@/lib/rbac/roles";
 import { updatePublisherSchema } from "@/lib/validation/publishers";
+import { getEnv } from "@/lib/env";
+import { deleteUserClearingReferences, UserHasRecordsError } from "@/lib/publishers/deleteUser";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
 	try {
@@ -79,10 +81,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 			delete data.active;
 		}
 
-		await db
+		const updated = await db
 			.update(users)
 			.set({ ...data, updatedAt: new Date() })
-			.where(eq(users.id, id));
+			.where(eq(users.id, id))
+			.returning({ id: users.id });
+		if (updated.length === 0) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+		// 14: al marcarlo como sacado se cierran sus sesiones (el login ya lo rechaza; el refresh también, pero así sale de inmediato).
+		if (data.disfellowshipped) await db.update(refreshTokens).set({ revokedAt: new Date() }).where(and(eq(refreshTokens.userId, id), isNull(refreshTokens.revokedAt)));
 
 		return NextResponse.json({ ok: true });
 	} catch (error) {
@@ -110,7 +117,17 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 			throw new RbacError("No se puede eliminar a un administrador — quítale el rol primero.");
 		}
 
-		await db.delete(users).where(eq(users.id, id));
+		try {
+			await deleteUserClearingReferences(getEnv().DB, id);
+		} catch (error) {
+			if (error instanceof UserHasRecordsError) {
+				return NextResponse.json(
+					{ error: "has_records", message: "Tiene registros a su nombre (informes que capturó, avisos que envió, es orador local, cuentas del salón…). Márcalo como inactivo en vez de eliminarlo." },
+					{ status: 409 },
+				);
+			}
+			throw error;
+		}
 
 		return NextResponse.json({ ok: true });
 	} catch (error) {

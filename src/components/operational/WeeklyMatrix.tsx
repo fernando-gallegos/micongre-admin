@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { IconButton, List, SectionLabel } from "@/components/ui/Layout";
 import { Input, Select } from "@/components/ui/Input";
 import type { EligibleUser } from "@/lib/rbac/eligibility";
-import { PRIVILEGE_IDS } from "@/lib/rbac/roles";
+import { NON_MEETING_OPERATIONAL_IDS, PRIVILEGE_IDS } from "@/lib/rbac/roles";
 import { TaskCell, type OperationalSlot } from "./TaskCell";
 import { AutoAssignButton } from "@/components/assignments/AutoAssignButton";
 import { PageLoader } from "@/components/ui/Spinner";
@@ -66,7 +66,7 @@ export function WeeklyMatrix({
 			// "Tareas operativas" es el privilegio de acceso al módulo, no una
 			// tarea asignable — no tiene sentido ofrecerlo aquí.
 			loadedCatalog = ((await catalogRes.json()) as { items: PrivilegeOption[] }).items.filter(
-				(c) => c.id !== PRIVILEGE_IDS.OPERATIONAL_ACCESS,
+				(c) => !NON_MEETING_OPERATIONAL_IDS.includes(c.id),
 			);
 			setCatalog(loadedCatalog);
 			setNewPrivilegeId((current) => current || loadedCatalog[0]?.id || "");

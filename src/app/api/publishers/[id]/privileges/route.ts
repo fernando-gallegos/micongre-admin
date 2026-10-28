@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { userPrivileges } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
+import { RbacError } from "@/lib/rbac/errors";
 import { assertCanAdministerAccounts } from "@/lib/rbac/guards";
 import { setPrivilegesSchema } from "@/lib/validation/appointments";
 
@@ -18,6 +19,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 		const { id: userId } = await params;
 		const db = getDb();
 		const session = await assertCanAdministerAccounts(db, sessionOrNull, userId);
+		// Con «Administrar cuentas» se le dan privilegios a otros, nunca a uno mismo (si no, podría darse cualquiera). Un admin sí puede.
+		if (session.role !== "admin" && userId === session.userId) throw new RbacError("No puedes cambiar tus propios privilegios; pídeselo a otro administrador.");
 
 		const parsed = setPrivilegesSchema.safeParse(await request.json().catch(() => null));
 		if (!parsed.success) {

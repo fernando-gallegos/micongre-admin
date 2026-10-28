@@ -17,6 +17,7 @@ interface Props {
 		hours: number | null;
 		projectHours?: number | null;
 		bibleStudiesCount: number | null;
+		comments?: string | null;
 	};
 	onSaved: () => void;
 }
@@ -37,7 +38,7 @@ export function S4Form({ userId, fullName, periodYear, periodMonth, pioneerType,
 		if (String(clamped ?? "") !== projectHours && Number(projectHours) > 0) setProjectHours(clamped?.toString() ?? "");
 	}
 	const [bibleStudiesCount, setBibleStudiesCount] = useState(initial?.bibleStudiesCount?.toString() ?? "0");
-	const [comments, setComments] = useState("");
+	const [comments, setComments] = useState(initial?.comments ?? "");
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 

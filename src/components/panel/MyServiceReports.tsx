@@ -13,6 +13,7 @@ interface Report {
 	hours: number | null;
 	projectHours: number | null;
 	bibleStudiesCount: number | null;
+	comments?: string | null;
 }
 
 type PioneerType = "auxiliary_pioneer" | "regular_pioneer" | null;

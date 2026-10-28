@@ -404,7 +404,7 @@ export function BulkAssign() {
 								<li>No hubo nada que cambiar.</li>
 							)}
 						</ul>
-						{result.skipped.length > 0 && <p className="text-ink-soft">Omitidas: {result.skipped.length} (administradores o no encontradas).</p>}
+						{result.skipped.length > 0 && <p className="text-ink-soft">Omitidas: {result.skipped.length} (administradores, no encontradas o tu propia cuenta: tus privilegios te los cambia otro administrador).</p>}
 						{result.warnings.map((w) => (
 							<p key={w} className="text-ink-soft">
 								{w}

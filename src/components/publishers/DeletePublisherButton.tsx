@@ -35,8 +35,8 @@ export function DeletePublisherButton({
 		const response = await fetch(`/api/publishers/${publisherId}`, { method: "DELETE" });
 		setDeleting(false);
 		if (!response.ok) {
-			const body = (await response.json().catch(() => null)) as { error?: string } | null;
-			setError(body?.error ?? "No se pudo eliminar.");
+			const body = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
+			setError(body?.message ?? body?.error ?? "No se pudo eliminar.");
 			return;
 		}
 		setModalOpen(false);

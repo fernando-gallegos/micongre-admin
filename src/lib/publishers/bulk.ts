@@ -128,6 +128,8 @@ export async function applyBulk(
 		const u = found.find((f) => f.id === id);
 		if (!u || u.isHiddenAdmin) result.skipped.push({ userId: id, reason: "no_encontrado" });
 		else if (opts.skipAdmins && u.systemRole === "admin") result.skipped.push({ userId: id, reason: "administrador" });
+		// Quien no es admin no puede cambiarse sus propios privilegios (se daría cualquiera con «Administrar cuentas»).
+		else if (opts.skipAdmins && input.privileges && id === opts.actorId) result.skipped.push({ userId: id, reason: "propia_cuenta" });
 		else valid.add(id);
 	}
 	const ids = [...valid];

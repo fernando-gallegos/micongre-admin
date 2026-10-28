@@ -100,7 +100,17 @@ export const PRIVILEGE_IDS = {
 	TERRITORY_MANAGEMENT: "priv_territory_management",
 	TERRITORY_ASSIGNABLE: "priv_territory_assignable",
 	PUBLIC_PREACHING_ASSIGNABLE: "priv_public_preaching_assignable",
+	PREACHING_ADMIN: "priv_preaching_admin",
 } as const;
+
+/** Privilegios con category='operational' que NO son tareas de una reunión: el de acceso al módulo y los de predicación/territorios.
+ * No se siembran en la matriz de tareas operativas, no se ofrecen al agregar un puesto ni los propone la asignación automática. */
+export const NON_MEETING_OPERATIONAL_IDS: string[] = [
+	PRIVILEGE_IDS.OPERATIONAL_ACCESS,
+	PRIVILEGE_IDS.PREACHING_ADMIN,
+	PRIVILEGE_IDS.TERRITORY_ASSIGNABLE,
+	PRIVILEGE_IDS.PUBLIC_PREACHING_ASSIGNABLE,
+];
 
 // Filas de sección fijas (una vez por semana) que se siembran automáticamente
 // al crear una reunión de entre semana. "student_assignment" NO se siembra

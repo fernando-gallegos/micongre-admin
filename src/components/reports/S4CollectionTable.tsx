@@ -20,6 +20,7 @@ interface Row {
 	projectHours: number | null;
 	bibleStudiesCount: number | null;
 	status: string | null;
+	comments: string | null;
 	pioneerType: "auxiliary_pioneer" | "regular_pioneer" | null;
 }
 
@@ -205,6 +206,7 @@ export function S4CollectionTable() {
 										isAuxiliaryPioneerThisMonth: editingRow.isAuxiliaryPioneerThisMonth ?? false,
 										hours: editingRow.hours,
 										projectHours: editingRow.projectHours,
+										comments: editingRow.comments,
 										bibleStudiesCount: editingRow.bibleStudiesCount,
 									}
 								: undefined

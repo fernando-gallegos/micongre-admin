@@ -50,7 +50,7 @@ export function PanelDashboard({ userId, fullName }: { userId: string; fullName:
 		load();
 	}, [load]);
 
-	const firstName = fullName.trim().split(/s+/)[0] ?? "";
+	const firstName = fullName.trim().split(/\s+/)[0] ?? "";
 	const todayLabel = now.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
 
 	if (loading) return <PageLoader />;

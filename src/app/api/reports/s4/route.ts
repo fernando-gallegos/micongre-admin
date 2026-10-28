@@ -43,6 +43,7 @@ export async function GET(request: Request) {
 				projectHours: serviceReports.projectHours,
 				bibleStudiesCount: serviceReports.bibleStudiesCount,
 				status: serviceReports.status,
+				comments: serviceReports.comments,
 				pioneerType: theocraticAppointments.appointmentType,
 			})
 			.from(users)

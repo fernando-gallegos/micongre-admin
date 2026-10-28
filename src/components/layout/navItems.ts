@@ -45,7 +45,7 @@ export const PREACHING_ITEM: NavItem = {
 	href: "/preaching",
 	label: "Predicación",
 	icon: Megaphone,
-	requiresAnyPrivilege: [PRIVILEGE_CODES.PREACHING_ADMIN],
+	requiresAnyPrivilege: [PRIVILEGE_CODES.PREACHING_ADMIN, PRIVILEGE_CODES.TERRITORY_MANAGEMENT],
 };
 
 // Los módulos (menú «Más» en móvil, barra lateral en escritorio), agrupados.

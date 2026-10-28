@@ -50,7 +50,7 @@ export const updateVisitRequestStatusSchema = z.object({
 	// Al postergar: la nueva fecha (se crea otro pastoreo con los mismos ancianos) y el comentario que lleva el nuevo.
 	newDate: z
 		.string()
-		.regex(/^d{4}-d{2}-d{2}$/)
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
 		.optional(),
 	notes: z.string().trim().max(1000).optional().nullable(),
 });

@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, notInArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { operationalSchedules, privileges, users } from "@/db/schema";
@@ -6,7 +6,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { checkOperationalCollisions } from "@/lib/collision";
 import { getSession } from "@/lib/auth/session";
 import { assertCanAccessOperationalModule } from "@/lib/rbac/guards";
-import { PRIVILEGE_IDS } from "@/lib/rbac/roles";
+import { NON_MEETING_OPERATIONAL_IDS } from "@/lib/rbac/roles";
 import { createOperationalSlotSchema } from "@/lib/validation/operational";
 
 export async function GET(request: Request) {
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 			const assignableTasks = await db
 				.select({ id: privileges.id })
 				.from(privileges)
-				.where(and(eq(privileges.category, "operational"), ne(privileges.id, PRIVILEGE_IDS.OPERATIONAL_ACCESS)));
+				.where(and(eq(privileges.category, "operational"), notInArray(privileges.id, NON_MEETING_OPERATIONAL_IDS)));
 			if (assignableTasks.length > 0) {
 				await db.insert(operationalSchedules).values(
 					assignableTasks.map((p) => ({ meetingType, meetingId, privilegeId: p.id })),
@@ -58,7 +58,14 @@ export async function GET(request: Request) {
 			.from(operationalSchedules)
 			.innerJoin(privileges, eq(privileges.id, operationalSchedules.privilegeId))
 			.leftJoin(users, eq(users.id, operationalSchedules.assignedUserId))
-			.where(and(eq(operationalSchedules.meetingType, meetingType), eq(operationalSchedules.meetingId, meetingId)))
+			// Puestos sembrados antes con privilegios que no son de reunión (predicación, territorios): ya no se muestran.
+			.where(
+				and(
+					eq(operationalSchedules.meetingType, meetingType),
+					eq(operationalSchedules.meetingId, meetingId),
+					notInArray(operationalSchedules.privilegeId, NON_MEETING_OPERATIONAL_IDS),
+				),
+			)
 			.orderBy(asc(privileges.name));
 
 		const items = await Promise.all(

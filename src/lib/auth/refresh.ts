@@ -61,7 +61,7 @@ export async function rotateRefreshToken(
 	if (row.expiresAt.getTime() < Date.now()) return { ok: false, error: "expired" };
 
 	const [user] = await db.select().from(users).where(eq(users.id, row.userId)).limit(1);
-	if (!user || !user.active || user.accountStatus !== "active") return { ok: false, error: "account_disabled" };
+	if (!user || !user.active || user.accountStatus !== "active" || user.disfellowshipped) return { ok: false, error: "account_disabled" };
 
 	const newRefreshTokenPlain = generateOpaqueToken();
 	const newRefreshTokenHash = await hashOpaqueToken(newRefreshTokenPlain);
@@ -120,7 +120,7 @@ async function tryRaceTolerantAccessToken(
 	if (!successor || successor.revokedAt || successor.expiresAt.getTime() < Date.now()) return null;
 
 	const [user] = await db.select().from(users).where(eq(users.id, successor.userId)).limit(1);
-	if (!user || !user.active || user.accountStatus !== "active") return null;
+	if (!user || !user.active || user.accountStatus !== "active" || user.disfellowshipped) return null;
 
 	const privilegeCodes = await getActivePrivilegeCodes(db, user.id);
 	const accessToken = await signAccessToken(

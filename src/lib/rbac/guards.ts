@@ -47,7 +47,9 @@ export async function assertCanManageReport(
 	if (
 		session.role === "admin" ||
 		(allowSelf && session.userId === targetUserId) ||
-		session.privilegeCodes.includes(PRIVILEGE_CODES.REPORTS_ALL)
+		session.privilegeCodes.includes(PRIVILEGE_CODES.REPORTS_ALL) ||
+		// «Recolección de informes» (S-4/S-21, p. ej. el secretario) también los ve y corrige todos.
+		session.privilegeCodes.includes(PRIVILEGE_CODES.FIELD_SERVICE_REPORTS)
 	) {
 		return;
 	}
@@ -409,7 +411,12 @@ export async function assertCanManagePublisher(db: Database, session: Session, t
  * (nombramiento formal, getManagedGroupIds) y su propio grupo si tiene el
  * permiso "Informes del grupo" — null significa "sin acotar" (ver todos). */
 export async function getReportsGroupIds(db: Database, session: Session): Promise<string[] | null> {
-	if (session.role === "admin" || session.privilegeCodes.includes(PRIVILEGE_CODES.REPORTS_ALL)) return null;
+	if (
+		session.role === "admin" ||
+		session.privilegeCodes.includes(PRIVILEGE_CODES.REPORTS_ALL) ||
+		session.privilegeCodes.includes(PRIVILEGE_CODES.FIELD_SERVICE_REPORTS)
+	)
+		return null;
 
 	const managedGroupIds = await getManagedGroupIds(db, session.userId);
 	const groupIds = new Set(managedGroupIds);
@@ -479,7 +486,7 @@ export async function getS21GroupScope(db: Database, session: Session | null): P
 	return getReportsGroupIds(db, session);
 }
 
-/** Módulo Predicación: admin, o el privilegio "Administrar Predicación" (que recibe solo el superintendente de servicio). */
+/** Módulo Predicación: admin, «Administrar Predicación» (superintendente de servicio) o «Siervo de territorios» (las salidas usan sus territorios). El menú (navItems PREACHING_ITEM) usa la misma lista. */
 export function canAccessPreachingModule(session: Session | null): boolean {
 	return !!session && (session.role === "admin" || (session.privilegeCodes.includes(PRIVILEGE_CODES.PREACHING_ADMIN) || session.privilegeCodes.includes(PRIVILEGE_CODES.TERRITORY_MANAGEMENT)));
 }
