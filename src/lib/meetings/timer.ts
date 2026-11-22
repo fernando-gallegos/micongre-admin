@@ -2,9 +2,9 @@
  * Cronómetro de la reunión («Ver tiempo de asignaciones»): lógica pura (sin navegador), igual que `data/MeetingTimer.kt` de la app
  * Android, para poder probarla.
  *
- * El programa se vuelve una lista de {@link TimedItem} en orden (canciones incluidas, con sus 5 minutos, igual que el S-140).
- * Al tocar el botón del reloj empieza el primer elemento; con «Terminó» se cierra el actual y, entre dos asignaciones, queda el
- * **cambio** (1 minuto en el plan) hasta tocar «Empezar». Después de una canción, o antes de una, lo siguiente empieza enseguida.
+ * El programa se vuelve una lista de {@link TimedItem} en orden: canciones (5 minutos), oraciones (2) y partes, todo contado.
+ * Al tocar el botón del reloj empieza el primer elemento; con «Terminó» se cierra el actual y, entre **cualquier** elemento y el
+ * siguiente, queda el **cambio** (1 minuto en el plan) hasta tocar «Empezar».
  */
 
 export interface TimedItem {
@@ -58,11 +58,12 @@ export function startRun(plan: TimedItem[], now: number): TimerRun {
 	return { startedAt: now, taps: plan.length === 0 ? [] : [[{ index: 0, isEnd: false, at: now }]] };
 }
 
-/** Hay cambio (y se espera «Empezar») solo entre dos asignaciones; junto a una canción se sigue de inmediato. */
+/** Entre un elemento y el siguiente (partes, canciones y oraciones) siempre hay un minuto de cambio, que se cuenta. */
 function hasChange(plan: TimedItem[], i: number): boolean {
-	const next = plan[i + 1];
-	return !plan[i].isSong && next != null && !next.isSong;
+	return plan[i + 1] != null;
 }
+
+const prayer = (key: string): TimedItem => ({ key, title: "Oración", minutes: PRAYER_MINUTES });
 
 /** «Terminó»: cierra el elemento en curso; si no toca cambio, el siguiente empieza en ese mismo momento. */
 export function finish(run: TimerRun, plan: TimedItem[], now: number): TimerRun {
@@ -192,7 +193,8 @@ export function midweekTimerPlan(d: TimerMidweekDetail, heading: (a: TimerMidwee
 	const cbs = cbsList.find((a) => a.sectionTitle === "Conductor") ?? cbsList[0];
 	const skip = !!d.skipOpeningPrayer;
 	const plan: TimedItem[] = [
-		{ key: "song:opening", title: songTitle(m.openingSongNumber, m.openingSongTitle, !skip), minutes: SONG_MINUTES + (skip ? 0 : PRAYER_MINUTES), isSong: true },
+		{ key: "song:opening", title: songTitle(m.openingSongNumber, m.openingSongTitle, false), minutes: SONG_MINUTES, isSong: true },
+		...(skip ? [] : [prayer("prayer:opening")]),
 		{ key: "intro", title: "Palabras de introducción", minutes: 1 },
 		...first.map(timed),
 		{ key: "song:middle", title: songTitle(m.middleSongNumber, m.middleSongTitle, false), minutes: SONG_MINUTES, isSong: true },
@@ -204,14 +206,15 @@ export function midweekTimerPlan(d: TimerMidweekDetail, heading: (a: TimerMidwee
 	plan.push({ key: "conclusion", title: "Palabras de conclusión", minutes: 3 });
 	plan.push({
 		key: "song:closing",
-		title: co?.midweekTalk.song != null ? songTitle(co.midweekTalk.song, null, true) : songTitle(m.closingSongNumber, m.closingSongTitle, true),
+		title: co?.midweekTalk.song != null ? songTitle(co.midweekTalk.song, null, false) : songTitle(m.closingSongNumber, m.closingSongTitle, false),
 		minutes: SONG_MINUTES,
 		isSong: true,
 	});
+	plan.push(prayer("prayer:closing"));
 	return plan;
 }
 
-/** Fin de semana: canción, discurso público (30), canción, La Atalaya (60), canción y oración; o al revés si empieza con La Atalaya. */
+/** Fin de semana: canción, oración, discurso público (30), canción, La Atalaya (60), canción y oración; o al revés si empieza con La Atalaya. */
 export function weekendTimerPlan(m: TimerWeekendMeeting, co: TimerCoVisit | null = null): TimedItem[] {
 	const talkSong: TimedItem = { key: "song:talk", title: songTitle(m.talkSongNumber, m.talkSongTitle, false), minutes: SONG_MINUTES, isSong: true };
 	const talk: TimedItem = { key: "talk", title: "Discurso público", minutes: 30 };
@@ -221,8 +224,8 @@ export function weekendTimerPlan(m: TimerWeekendMeeting, co: TimerCoVisit | null
 	const final: TimedItem | null = co ? { key: "co:final", title: co.finalTalk.title || "Discurso final", minutes: 30 } : null;
 	const closing: TimedItem = { key: "song:closing", title: songTitle(m.closingSongNumber, m.closingSongTitle, false), minutes: SONG_MINUTES, isSong: true };
 	const list = m.watchtowerFirst
-		? [wtSong, wt, final, closing, talk, { ...talkSong, title: `${talkSong.title} y oración` }]
-		: [talkSong, talk, wtSong, wt, final, { ...closing, title: `${closing.title} y oración` }];
+		? [wtSong, prayer("prayer:opening"), wt, final, closing, talk, talkSong, prayer("prayer:closing")]
+		: [talkSong, prayer("prayer:opening"), talk, wtSong, wt, final, closing, prayer("prayer:closing")];
 	return list.filter((x): x is TimedItem => x != null);
 }
 

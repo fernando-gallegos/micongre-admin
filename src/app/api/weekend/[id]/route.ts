@@ -4,7 +4,8 @@ import { getDb } from "@/db/client";
 import { publicTalkOutlines, speakerCongregations, speakerOutlines, speakers, users, weekendMeetings } from "@/db/schema";
 import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
-import { assertCanAccessWeekendModule, assertEligibleForAssignment } from "@/lib/rbac/guards";
+import { assertCanAccessWeekendModule, assertEligibleForAssignment, isElderOrMinisterialServant } from "@/lib/rbac/guards";
+import { jwLibraryLink, outlineLink } from "@/lib/jw/library";
 import { PRIVILEGE_CODES, PRIVILEGE_IDS } from "@/lib/rbac/roles";
 import { updateWeekendMeetingSchema } from "@/lib/validation/weekend";
 import { songTitleMap } from "@/lib/songs/catalog";
@@ -31,6 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				prayerUserId: weekendMeetings.prayerUserId,
 				watchtowerFirst: weekendMeetings.watchtowerFirst,
 				watchtowerTitle: weekendMeetings.watchtowerTitle,
+				watchtowerDocId: weekendMeetings.watchtowerDocId,
 				watchtowerSongNumber: weekendMeetings.watchtowerSongNumber,
 				closingSongNumber: weekendMeetings.closingSongNumber,
 				status: weekendMeetings.status,
@@ -60,7 +62,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 		const named = roleIds.length ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, roleIds)) : [];
 		const nameOf = (id: string | null) => (id ? (named.find((u) => u.id === id)?.fullName ?? null) : null);
 
-		const titles = await songTitleMap(db);
+		const [titles, showOutline] = await Promise.all([songTitleMap(db), isElderOrMinisterialServant(db, session.userId)]);
 		const titleOf = (n: number | null) => (n != null ? (titles.get(n) ?? null) : null);
 
 		return NextResponse.json({
@@ -74,6 +76,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				watchtowerConductorName: nameOf(meeting.watchtowerConductorId),
 				watchtowerReaderName: nameOf(meeting.watchtowerReaderId),
 				prayerName: nameOf(meeting.prayerUserId),
+				// Abren JW Library: el artículo completo de La Atalaya y, solo para ancianos y siervos ministeriales, el bosquejo (S-34) por su número.
+				// El número del bosquejo solo lo ven ancianos y siervos ministeriales (y quien arma el programa de fin de semana).
+				talkOutlineNumber: showOutline || canSeeNotes ? meeting.talkOutlineNumber : null,
+				watchtowerLink: meeting.watchtowerDocId ? jwLibraryLink(meeting.watchtowerDocId) : null,
+				talkOutlineLink: showOutline ? outlineLink(meeting.talkOutlineNumber) : null,
 			},
 			// Evento que cancela o mueve esta reunión, visita del superintendente de esa semana y la fecha y hora reales.
 			...(await meetingContext(db, meeting.meetingDate, "weekend")),

@@ -9,6 +9,7 @@ import { PRIVILEGE_CODES } from "@/lib/rbac/roles";
 import { updateMidweekMeetingSchema } from "@/lib/validation/midweek";
 import { songTitleMap } from "@/lib/songs/catalog";
 import { meetingContext } from "@/lib/events/service";
+import { mwbPartLink } from "@/lib/jw/library";
 
 async function loadMeetingWithAssignments(db: ReturnType<typeof getDb>, id: string) {
 	const [meeting] = await db.select().from(midweekMeetings).where(eq(midweekMeetings.id, id)).limit(1);
@@ -42,6 +43,8 @@ async function loadMeetingWithAssignments(db: ReturnType<typeof getDb>, id: stri
 
 	const assignments = rows.map((r) => ({
 		...r,
+		// Abre la parte (solo las numeradas) en la guía de actividades de JW Library.
+		jwLink: mwbPartLink(meeting.mwbDocId, meeting.mwbPars, r.partNumber),
 		mainAssigneeName: r.mainAssigneeId ? (nameById.get(r.mainAssigneeId) ?? null) : null,
 		assistantAssigneeName: r.assistantAssigneeId ? (nameById.get(r.assistantAssigneeId) ?? null) : null,
 	}));

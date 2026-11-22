@@ -1,4 +1,4 @@
-import { and, eq, gte, isNotNull, lte, ne } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lte, ne } from "drizzle-orm";
 import { applyUpcomingEvents, notifyDueEvents } from "@/lib/events/service";
 import { syncJwCatalog, type CatalogSyncResult } from "@/lib/literature/jwCatalog";
 import { syncOutlineCatalog, type OutlineCatalogResult } from "@/lib/publicTalks/catalogSync";
@@ -13,7 +13,8 @@ import { runReportReminders, type ReportReminderResult } from "@/lib/reminders/r
 import { runStudyReminders } from "@/lib/pioneer/service";
 import { fetchMwbEpub } from "@/lib/mwb/fetchEpub";
 import { parseWeekPrograms } from "@/lib/mwb/parseProgram";
-import { programRows, ROWS_PER_INSERT } from "@/lib/mwb/programRows";
+import { mwbLinkFields, programRows, ROWS_PER_INSERT } from "@/lib/mwb/programRows";
+import { applyProgramToMeeting } from "@/lib/mwb/applyProgram";
 import { MIDWEEK_FIXED_SECTIONS } from "@/lib/rbac/roles";
 import { getDefaultWatchtowerConductorId } from "@/lib/weekend/defaults";
 import { ensureSongsCatalog } from "@/lib/songs/catalog";
@@ -52,8 +53,8 @@ function mondaysOfMonth(year: number, month0: number): string[] {
 	return weekStartsOfMonth(toISODate(firstMonday));
 }
 
-/** Entre semana: crea las reuniones que falten (con el programa de la guía si ya está publicada; si no, solo con las partes fijas)
- * y completa con la guía las que quedaron "en blanco" y todavía no tienen a nadie asignado. Lo que ya está armado no se toca. */
+/** Entre semana: crea las reuniones que falten (con el programa de la guía si ya está publicada; si no, solo con las partes fijas) y deja
+ * las que ya existen igual que la guía (títulos, canciones, partes, enlaces a JW Library) sin cambiar a nadie de su asignación. */
 async function ensureMidweek(db: Database, mondays: string[], out: DailyResult["midweek"]): Promise<void> {
 	if (mondays.length === 0) return;
 	const lastSunday = toISODate(addDays(parseISODate(mondays[mondays.length - 1]), 6));
@@ -66,21 +67,20 @@ async function ensureMidweek(db: Database, mondays: string[], out: DailyResult["
 		return meetings.find((m) => m.meetingDate >= monday && m.meetingDate <= sunday);
 	};
 
-	// Semanas que necesitan algo: sin reunión, o con una reunión sin programa (weekLabel vacío).
-	const needy = mondays.filter((m) => {
-		const existing = byWeek(m);
-		return !existing || !existing.weekLabel;
-	});
-	if (needy.length === 0) return;
-
 	let programs: ReturnType<typeof parseWeekPrograms> = new Map();
 	try {
-		programs = parseWeekPrograms(await fetchMwbEpub(issueCodeForWeek(mondays[0])), needy);
+		programs = parseWeekPrograms(await fetchMwbEpub(issueCodeForWeek(mondays[0])), mondays);
 	} catch (error) {
 		out.errors.push(`Guía de ${mondays[0].slice(0, 7)}: ${(error as Error).message || "no disponible"}`);
 	}
 
-	for (const monday of needy) {
+	const parts = meetings.length
+		? (
+				await Promise.all(chunked(meetings.map((m) => m.id)).map((ids) => db.select().from(midweekAssignments).where(inArray(midweekAssignments.meetingId, ids))))
+			).flat()
+		: [];
+
+	for (const monday of mondays) {
 		const existing = byWeek(monday);
 		const program = programs.get(monday);
 
@@ -96,6 +96,7 @@ async function ensureMidweek(db: Database, mondays: string[], out: DailyResult["
 						closingSongNumber: program.closingSongNumber,
 						middleSongNumber: program.middleSongNumber,
 						studyLessonReference: program.cbs.title,
+						...mwbLinkFields(program),
 					})
 					.returning({ id: midweekMeetings.id });
 				for (const chunk of chunked(rows, ROWS_PER_INSERT)) {
@@ -119,28 +120,10 @@ async function ensureMidweek(db: Database, mondays: string[], out: DailyResult["
 			continue;
 		}
 
-		// Reunión en blanco: se llena con la guía solo si todavía no hay nadie asignado.
+		// Ya existe: se actualiza con la guía (solo lo que cambió), sin tocar asignaciones.
 		if (!program) continue;
-		const current = await db.select().from(midweekAssignments).where(eq(midweekAssignments.meetingId, existing.id));
-		const hasAssignees = existing.chairmanUserId !== null || current.some((a) => a.mainAssigneeId || a.assistantAssigneeId);
-		if (hasAssignees) continue;
-		const rows = programRows(program);
-		const statements: [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]] = [
-			db
-				.update(midweekMeetings)
-				.set({
-					weekLabel: program.weekLabel,
-					openingSongNumber: program.openingSongNumber,
-					closingSongNumber: program.closingSongNumber,
-					middleSongNumber: program.middleSongNumber,
-					studyLessonReference: program.cbs.title,
-				})
-				.where(eq(midweekMeetings.id, existing.id)),
-			db.delete(midweekAssignments).where(eq(midweekAssignments.meetingId, existing.id)),
-			...chunked(rows, ROWS_PER_INSERT).map((chunk) => db.insert(midweekAssignments).values(chunk.map((row) => ({ ...row, meetingId: existing.id })))),
-		];
-		await db.batch(statements);
-		out.filled++;
+		const current = parts.filter((p) => p.meetingId === existing.id);
+		if (await applyProgramToMeeting(db, existing, current, program)) out.filled++;
 	}
 }
 

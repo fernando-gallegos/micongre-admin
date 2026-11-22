@@ -181,6 +181,22 @@ export async function isServiceCommitteeMember(db: Database, userId: string): Pr
 	return !!activeAppointment;
 }
 
+/** Anciano o siervo ministerial (nombramiento activo): quienes ven el enlace al bosquejo del discurso público (S-34). */
+export async function isElderOrMinisterialServant(db: Database, userId: string): Promise<boolean> {
+	const [activeAppointment] = await db
+		.select({ id: theocraticAppointments.id })
+		.from(theocraticAppointments)
+		.where(
+			and(
+				eq(theocraticAppointments.userId, userId),
+				isNull(theocraticAppointments.endDate),
+				inArray(theocraticAppointments.appointmentType, ["elder", "ministerial_servant"]),
+			),
+		)
+		.limit(1);
+	return !!activeAppointment;
+}
+
 /** Superintendente de servicio (nombramiento activo, no todo el comité) —
  * quien ve la columna "Progreso" (horas del año de servicio) en Publicadores. */
 export async function isServiceOverseer(db: Database, userId: string): Promise<boolean> {

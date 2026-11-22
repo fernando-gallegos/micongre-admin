@@ -23,6 +23,8 @@ export interface WatchtowerStudy {
 	title: string;
 	openingSong: number | null;
 	closingSong: number | null;
+	/** Documento del artículo (MEPS docid, el nombre del capítulo del EPUB): para abrirlo en JW Library. */
+	docId: number | null;
 }
 
 /** Edición (AAAAMM) de La Atalaya de estudio donde sale el estudio de la semana: dos meses antes del mes de su lunes. */
@@ -92,6 +94,7 @@ export function parseWatchtowerEpub(epubBytes: ArrayBuffer): WatchtowerStudy[] {
 			title: text,
 			openingSong: songs[0] ?? null,
 			closingSong: songs.length > 1 ? songs[songs.length - 1] : null,
+			docId: Number(name.match(/(\d{6,})\.x?html$/i)?.[1]) || null,
 		});
 	}
 	return out.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
@@ -108,8 +111,8 @@ async function fetchWatchtowerEpub(issue: string, lang = "S"): Promise<ArrayBuff
 	return epub.arrayBuffer();
 }
 
-/** Completa, en las reuniones de fin de semana de esas semanas, el título del estudio de La Atalaya y sus dos canciones. Solo llena lo que está
- * vacío (lo escrito a mano no se pisa). Nunca falla: si la edición todavía no está publicada, no hace nada. Devuelve cuántas reuniones completó. */
+/** Deja, en las reuniones de fin de semana de esas semanas, el título del estudio de La Atalaya, sus dos canciones y el enlace a JW Library
+ * igual que la edición publicada (sin tocar a los asignados). Nunca falla: si la edición todavía no está publicada, no hace nada. Devuelve cuántas reuniones completó. */
 export async function importWatchtowerForWeeks(db: Database, mondays: string[]): Promise<number> {
 	if (mondays.length === 0) return 0;
 	await ensureSongsCatalog(db);
@@ -138,9 +141,11 @@ export async function importWatchtowerForWeeks(db: Database, mondays: string[]):
 		const meeting = meetings.find((m) => m.meetingDate >= monday && m.meetingDate <= sunday);
 		if (!meeting) continue;
 		const patch: Partial<typeof weekendMeetings.$inferInsert> = {};
-		if (!meeting.watchtowerTitle) patch.watchtowerTitle = study.title;
-		if (meeting.watchtowerSongNumber == null && study.openingSong != null) patch.watchtowerSongNumber = study.openingSong;
-		if (meeting.closingSongNumber == null && study.closingSong != null) patch.closingSongNumber = study.closingSong;
+		// Se deja igual que La Atalaya (título, canciones y enlace); los asignados de la reunión no se tocan.
+		if (meeting.watchtowerTitle !== study.title) patch.watchtowerTitle = study.title;
+		if (study.openingSong != null && meeting.watchtowerSongNumber !== study.openingSong) patch.watchtowerSongNumber = study.openingSong;
+		if (study.closingSong != null && meeting.closingSongNumber !== study.closingSong) patch.closingSongNumber = study.closingSong;
+		if (study.docId != null && meeting.watchtowerDocId !== study.docId) patch.watchtowerDocId = study.docId;
 		if (Object.keys(patch).length === 0) continue;
 		await db.update(weekendMeetings).set(patch).where(eq(weekendMeetings.id, meeting.id));
 		filled++;

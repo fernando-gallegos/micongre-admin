@@ -18,6 +18,11 @@ export interface ProgramRow {
 }
 
 
+/** Para abrir cada parte numerada en JW Library: el documento de la semana y el párrafo de cada parte (columnas de midweek_meetings). */
+export function mwbLinkFields(program: ParsedProgram): { mwbDocId: number | null; mwbPars: string | null } {
+	return { mwbDocId: program.docId, mwbPars: Object.keys(program.pars).length ? JSON.stringify(program.pars) : null };
+}
+
 // Todas las filas del programa en el orden de la guía: Tesoros, Seamos mejores
 // maestros (cantidad variable), Nuestra vida cristiana (1+ partes), estudio
 // bíblico (conductor y lector) y oración.

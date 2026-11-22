@@ -22,7 +22,7 @@ const SONG_RE = /Canci[oó]n\s+(\d+)/gi;
 const DURATION_RE = /\((\d+)\s*min[s]?\.?\)/i;
 // Encabezado numerado de una parte del programa: <h3 ...>[<span .../>]<strong>N. Título</strong></h3>
 // El span opcional vacío es un marcador de número de página que a veces aparece antes del <strong>.
-const NUMBERED_HEADING_RE = /<h3[^>]*>(?:<span[^>]*><\/span>)?<strong>(\d+)\.\s*([\s\S]*?)<\/strong>\s*<\/h3>/g;
+const NUMBERED_HEADING_RE = /<h3([^>]*)>(?:<span[^>]*><\/span>)?<strong>(\d+)\.\s*([\s\S]*?)<\/strong>\s*<\/h3>/g;
 
 const SPANISH_MONTHS: Record<string, number> = {
 	enero: 1,
@@ -44,6 +44,8 @@ interface HeadingMatch {
 	index: number;
 	endIndex: number;
 	title: string;
+	/** Párrafo del encabezado (data-pid): con él el enlace abre JW Library justo en esa parte. */
+	pid: number | null;
 }
 
 function stripTags(html: string): string {
@@ -93,11 +95,13 @@ function extractNumberedHeadings(html: string): HeadingMatch[] {
 	const re = new RegExp(NUMBERED_HEADING_RE);
 	let match: RegExpExecArray | null;
 	while ((match = re.exec(html))) {
+		const pid = match[1].match(/data-pid="(\d+)"/);
 		headings.push({
-			number: Number(match[1]),
+			number: Number(match[2]),
 			index: match.index,
 			endIndex: match.index + match[0].length,
-			title: stripTags(match[2]),
+			title: stripTags(match[3]),
+			pid: pid ? Number(pid[1]) : null,
 		});
 	}
 	return headings;
@@ -128,7 +132,7 @@ function findFirstParagraph(html: string, from: number, to: number): string | nu
 	return findFollowingText(html, from, to);
 }
 
-function buildParsedProgram(html: string, weekLabel: string): ParsedProgram | null {
+function buildParsedProgram(html: string, weekLabel: string, docId: number | null = null): ParsedProgram | null {
 	const treasuresIdx = html.indexOf(SECTION_TREASURES);
 	const studentIdx = html.indexOf(SECTION_STUDENT);
 	const livingIdx = html.indexOf(SECTION_LIVING);
@@ -195,7 +199,12 @@ function buildParsedProgram(html: string, weekLabel: string): ParsedProgram | nu
 
 	const songNumbers = [...html.matchAll(SONG_RE)].map((m) => Number(m[1]));
 
+	const pars: Record<number, number> = {};
+	for (const h of headings) if (h.pid != null && pars[h.number] == null) pars[h.number] = h.pid;
+
 	return {
+		docId,
+		pars,
 		weekLabel,
 		openingSongNumber: songNumbers[0] ?? null,
 		middleSongNumber: songNumbers.length > 2 ? songNumbers[1] : null,
@@ -234,7 +243,9 @@ export function parseWeekPrograms(epubBytes: ArrayBuffer, weekStarts: string[]):
 		const weekStart = parseWeekStartFromTitle(weekLabel, issue);
 		if (!weekStart || !wanted.has(weekStart) || programs.has(weekStart)) continue;
 
-		const program = buildParsedProgram(mainHtml, weekLabel);
+		// El capítulo se llama como el documento de la semana (p. ej. OEBPS/202026401.xhtml).
+		const docMatch = name.match(/(\d{6,})\.x?html$/i);
+		const program = buildParsedProgram(mainHtml, weekLabel, docMatch ? Number(docMatch[1]) : null);
 		if (program) programs.set(weekStart, program);
 	}
 

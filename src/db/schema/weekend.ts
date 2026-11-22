@@ -20,6 +20,8 @@ export const weekendMeetings = sqliteTable(
 		// 1 = la reunión empieza con La Atalaya y el discurso público va después.
 		watchtowerFirst: integer("watchtower_first", { mode: "boolean" }).notNull().default(false),
 		watchtowerTitle: text("watchtower_title"),
+		// Documento del artículo de estudio en La Atalaya (MEPS docid): el enlace a JW Library (migrations/0088).
+		watchtowerDocId: integer("watchtower_doc_id"),
 		watchtowerSongNumber: integer("watchtower_song_number"),
 		closingSongNumber: integer("closing_song_number"),
 		status: text("status", { enum: ["scheduled", "cancelled"] }).notNull().default("scheduled"),

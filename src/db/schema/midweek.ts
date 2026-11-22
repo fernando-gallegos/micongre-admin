@@ -37,6 +37,10 @@ export const midweekMeetings = sqliteTable(
 		middleSongNumber: integer("middle_song_number"),
 		openingPrayerUserId: text("opening_prayer_user_id").references(() => users.id),
 		studyLessonReference: text("study_lesson_reference"),
+		// Documento de la semana en la guía (MEPS docid) y, por número de parte, su párrafo: el enlace de cada parte a JW Library
+		// (migrations/0088). `mwbPars` es JSON {"1": 5, "2": 10, …}.
+		mwbDocId: integer("mwb_doc_id"),
+		mwbPars: text("mwb_pars"),
 		hasAuxRoom: integer("has_aux_room", { mode: "boolean" }).notNull().default(false),
 		notes: text("notes"),
 		// Evento que canceló esta reunión (migrations/0076); null = no la canceló un evento. Sin FK en Drizzle para no crear un ciclo de imports.

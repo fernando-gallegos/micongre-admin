@@ -44,6 +44,8 @@ interface Context {
 interface MidweekAssignment extends TimerMidweekAssignment {
 	description: string | null;
 	partNumber: number | null;
+	/** Abre la parte (numerada) en la guía de JW Library. */
+	jwLink?: string | null;
 	mainAssigneeName: string | null;
 	assistantAssigneeName: string | null;
 }
@@ -84,6 +86,10 @@ interface WeekendMeeting {
 	talkSongTitle: string | null;
 	watchtowerFirst: boolean;
 	watchtowerTitle: string | null;
+	/** Abre el artículo en JW Library. */
+	watchtowerLink?: string | null;
+	/** Abre el bosquejo (S-34) en JW Library: solo llega a ancianos y siervos ministeriales. */
+	talkOutlineLink?: string | null;
 	watchtowerConductorName: string | null;
 	watchtowerReaderName: string | null;
 	watchtowerSongNumber: number | null;
@@ -369,12 +375,22 @@ function Section({
 	);
 }
 
-function Line({ label, value }: { label: string; value: string | null | undefined }) {
+/** Texto que abre JW Library (enlace jw.org/finder) en el documento: parte de la guía, artículo de La Atalaya o bosquejo. */
+function JwLink({ href, children }: { href: string; children: React.ReactNode }) {
+	return (
+		<a href={href} target="_blank" rel="noopener noreferrer" title="Abrir en JW Library" className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent">
+			{children}
+		</a>
+	);
+}
+
+function Line({ label, value, href }: { label: string; value: string | null | undefined; href?: string | null }) {
+	const text = value?.trim() ? value : "Sin asignar";
 	return (
 		// Mismo formato que las partes: «Etiqueta: Nombre» (nombre en negrita).
 		<p className="px-4 py-2.5 text-sm">
 			<span className="text-ink-soft">{label}: </span>
-			<span className="font-semibold text-ink">{value?.trim() ? value : "Sin asignar"}</span>
+			<span className="font-semibold text-ink">{href && value?.trim() ? <JwLink href={href}>{text}</JwLink> : text}</span>
 		</p>
 	);
 }
@@ -385,7 +401,9 @@ function PartRow({
 	description,
 	lines,
 	timerKey,
+	href,
 }: {
+	href?: string | null;
 	title: string;
 	minutes?: number | null;
 	description?: string | null;
@@ -398,7 +416,7 @@ function PartRow({
 	return (
 		<div className={current ? "m-1 rounded-[14px] border-2 border-accent bg-accent/10 px-3 py-2" : "px-4 py-3"}>
 			<p className="text-[15px] font-semibold text-ink">
-				{title}
+				{href ? <JwLink href={href}>{title}</JwLink> : title}
 				{minutes ? <span className="ml-1.5 text-[13px] font-normal text-ink-soft">({minutes} mins.)</span> : null}
 			</p>
 			{description?.trim() && <p className="mt-1 text-sm text-ink-soft">{description}</p>}
@@ -533,7 +551,9 @@ function MidweekView({ detail: d, ops }: { detail: MidweekDetail; ops: Operation
 				<Line label="Presidente" value={m.chairmanName} />
 				{/* Las oraciones solo se muestran si ya hay alguien asignado. */}
 				{!d.skipOpeningPrayer && m.openingPrayerName?.trim() && <Line label="Oración inicial" value={m.openingPrayerName} />}
+				{!d.skipOpeningPrayer && <TimerLine timerKey="prayer:opening" className="px-4 pb-2" />}
 				{finalPrayer?.trim() && <Line label="Oración final" value={finalPrayer} />}
+				<TimerLine timerKey="prayer:closing" className="px-4 pb-2" />
 			</div>
 
 			{/* Cada canción va en su lugar del programa: inicial antes de Tesoros, intermedia en Nuestra vida cristiana y final al cierre. */}
@@ -578,6 +598,7 @@ function MidweekView({ detail: d, ops }: { detail: MidweekDetail; ops: Operation
 									<PartRow
 										key={a.id}
 										title={`${conductor.partNumber ? `${conductor.partNumber}. ` : ""}Estudio bíblico de la congregación`}
+										href={conductor.jwLink}
 										minutes={conductor.durationMinutes}
 										description={conductor.description}
 										lines={[
@@ -597,6 +618,7 @@ function MidweekView({ detail: d, ops }: { detail: MidweekDetail; ops: Operation
 								<PartRow
 									key={a.id}
 									title={`${a.partNumber ? `${a.partNumber}. ` : ""}${partHeading(a)}`}
+									href={a.jwLink}
 									minutes={a.durationMinutes}
 									description={a.description}
 									lines={lines}
@@ -657,7 +679,7 @@ function WeekendView({ detail: wd, ops }: { detail: WeekendDetail; ops: Operatio
 	const talkPart = (
 		<Section key="talk" title="Discurso público" icon="talk" bar="bg-meeting-talk text-white" soft="bg-meeting-talk-soft">
 			<Line label="Orador" value={speaker} />
-			<Line label="Discurso" value={outline} />
+			<Line label="Discurso" value={outline} href={co ? null : m.talkOutlineLink} />
 			<TimerLine timerKey="talk" className="px-4 py-2.5" />
 		</Section>
 	);
@@ -667,7 +689,7 @@ function WeekendView({ detail: wd, ops }: { detail: WeekendDetail; ops: Operatio
 			<SongCard key="wt-song" text={songText(m.watchtowerSongNumber, m.watchtowerSongTitle)} timerKey="song:watchtower" />
 		),
 		<Section key="wt" title="La Atalaya" icon="watchtower" bar="bg-meeting-watchtower text-white" soft="bg-meeting-watchtower-soft">
-			{m.watchtowerTitle?.trim() && <Line label="Estudio" value={m.watchtowerTitle} />}
+			{m.watchtowerTitle?.trim() && <Line label="Estudio" value={m.watchtowerTitle} href={m.watchtowerLink} />}
 			<Line label="Conductor" value={m.watchtowerConductorName} />
 			<Line label="Lector" value={m.watchtowerReaderName} />
 			{co && <Line label="Duración" value="30 mins." />}
@@ -692,6 +714,8 @@ function WeekendView({ detail: wd, ops }: { detail: WeekendDetail; ops: Operatio
 			<div className="rounded-[20px] bg-surface py-1">
 				<Line label="Presidente" value={m.chairmanName} />
 				{m.prayerName?.trim() && <Line label="Oración" value={m.prayerName} />}
+				<TimerLine timerKey="prayer:opening" className="px-4 pb-2" />
+				<TimerLine timerKey="prayer:closing" className="px-4 pb-2" />
 			</div>
 			{/* Normalmente se empieza con la canción y el discurso; a veces con La Atalaya y el discurso va después. */}
 			{m.watchtowerFirst ? (

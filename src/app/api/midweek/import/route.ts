@@ -10,17 +10,12 @@ import { chunked } from "@/lib/cleaning/meetings";
 import { addDays, issueCodeForWeek, parseISODate, toISODate, weekStartsOfMonth } from "@/lib/mwb/dates";
 import { fetchMwbEpub, MwbFetchError } from "@/lib/mwb/fetchEpub";
 import { parseWeekPrograms } from "@/lib/mwb/parseProgram";
-import { programRows, ROWS_PER_INSERT, type ProgramRow } from "@/lib/mwb/programRows";
+import { mwbLinkFields, programRows, ROWS_PER_INSERT } from "@/lib/mwb/programRows";
+import { applyProgramToMeeting } from "@/lib/mwb/applyProgram";
 import { importMidweekProgramSchema } from "@/lib/validation/midweek";
 import { ensureSongsCatalog } from "@/lib/songs/catalog";
 
 type WeekAction = "created" | "replaced" | "updated" | "not_found";
-
-// Clave de "casilla": las filas de un mismo tipo se emparejan por posición;
-// el estudio bíblico se separa por conductor/lector.
-function slotKey(sectionType: string, sectionTitle: string | null): string {
-	return sectionType === "cbs" ? `cbs:${sectionTitle}` : sectionType;
-}
 
 export async function POST(request: Request) {
 	try {
@@ -83,6 +78,7 @@ export async function POST(request: Request) {
 				closingSongNumber: program.closingSongNumber,
 				middleSongNumber: program.middleSongNumber,
 				studyLessonReference: program.cbs.title,
+				...mwbLinkFields(program),
 			};
 
 			if (!existing) {
@@ -97,76 +93,9 @@ export async function POST(request: Request) {
 				continue;
 			}
 
-			const meetingId = existing.id;
-			const current = existingAssignments.filter((a) => a.meetingId === meetingId);
-			const hasAssignees =
-				existing.chairmanUserId !== null || current.some((a) => a.mainAssigneeId || a.assistantAssigneeId);
-
-			if (!hasAssignees) {
-				// Nadie asignado: se reemplaza todo el programa de esa semana.
-				const replaceStatements: [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]] = [
-					db.update(midweekMeetings).set(meetingFields).where(eq(midweekMeetings.id, meetingId)),
-					db.delete(midweekAssignments).where(eq(midweekAssignments.meetingId, meetingId)),
-					...chunked(rows, ROWS_PER_INSERT).map((chunk) =>
-						db.insert(midweekAssignments).values(chunk.map((row) => ({ ...row, meetingId }))),
-					),
-				];
-				await db.batch(replaceStatements);
-				weeks.push({ weekStart: monday, weekLabel: program.weekLabel, action: "replaced" });
-				continue;
-			}
-
-			// Hay asignados: se actualizan títulos/duraciones/orden de las partes
-			// existentes (emparejadas por tipo y posición) y se agregan las nuevas.
-			// Las partes que ya no están en la guía se borran junto con su asignado.
-			const statements: BatchItem<"sqlite">[] = [
-				db.update(midweekMeetings).set(meetingFields).where(eq(midweekMeetings.id, meetingId)),
-			];
-			const newBySlot = new Map<string, ProgramRow[]>();
-			for (const row of rows) {
-				const key = slotKey(row.sectionType, row.sectionTitle);
-				newBySlot.set(key, [...(newBySlot.get(key) ?? []), row]);
-			}
-			const oldBySlot = new Map<string, typeof current>();
-			for (const a of [...current].sort((x, y) => x.sequenceOrder - y.sequenceOrder)) {
-				const key = slotKey(a.sectionType, a.sectionTitle);
-				oldBySlot.set(key, [...(oldBySlot.get(key) ?? []), a]);
-			}
-
-			const inserts: (ProgramRow & { meetingId: string })[] = [];
-			for (const key of new Set([...newBySlot.keys(), ...oldBySlot.keys()])) {
-				const fresh = newBySlot.get(key) ?? [];
-				const old = oldBySlot.get(key) ?? [];
-				fresh.forEach((row, i) => {
-					const match = old[i];
-					if (match) {
-						statements.push(
-							db
-								.update(midweekAssignments)
-								.set({
-									sectionTitle: row.sectionTitle,
-									description: row.description,
-									partNumber: row.partNumber,
-									durationMinutes: row.durationMinutes,
-									sequenceOrder: row.sequenceOrder,
-								})
-								.where(eq(midweekAssignments.id, match.id)),
-						);
-					} else {
-						inserts.push({ ...row, meetingId });
-					}
-				});
-				// Lo que ya no está en la guía (partes personalizadas o de relleno) se
-				// borra, con su asignado.
-				for (const leftover of old.slice(fresh.length)) {
-					statements.push(db.delete(midweekAssignments).where(eq(midweekAssignments.id, leftover.id)));
-				}
-			}
-			for (const chunk of chunked(inserts, ROWS_PER_INSERT)) {
-				statements.push(db.insert(midweekAssignments).values(chunk));
-			}
-
-			await db.batch(statements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+			// Ya existe: se deja igual que la guía (títulos, canciones, partes, enlaces) sin cambiar a nadie de su asignación.
+			const current = existingAssignments.filter((a) => a.meetingId === existing.id);
+			await applyProgramToMeeting(db, existing, current, program);
 			weeks.push({ weekStart: monday, weekLabel: program.weekLabel, action: "updated" });
 		}
 

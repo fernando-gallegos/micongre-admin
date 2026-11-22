@@ -31,16 +31,18 @@ const plan: TimedItem[] = [
 ];
 
 describe("cronómetro de la reunión", () => {
-	it("horas del plan con un minuto de cambio solo entre asignaciones", () => {
-		// canción 7 → intro 1 (+1 cambio) → discurso 10 → canción 5 → estudio
-		expect(plannedStarts(plan, 0)).toEqual([0, 7 * min, 9 * min, 19 * min, 24 * min]);
+	it("horas del plan con un minuto de cambio entre todo (canciones incluidas)", () => {
+		// canción 7 (+1) → intro 1 (+1) → discurso 10 (+1) → canción 5 (+1) → estudio
+		expect(plannedStarts(plan, 0)).toEqual([0, 8 * min, 10 * min, 21 * min, 27 * min]);
 	});
 
 	it("terminar y empezar", () => {
 		let run = startRun(plan, 0);
 		expect(phase(run, plan)).toEqual({ kind: "running", index: 0 });
-		// Después de la canción, la introducción empieza enseguida.
+		// También después de una canción queda el cambio hasta «Empezar».
 		run = finish(run, plan, 7 * min);
+		expect(phase(run, plan)).toEqual({ kind: "change", next: 1 });
+		run = begin(run, plan, 7 * min);
 		expect(phase(run, plan)).toEqual({ kind: "running", index: 1 });
 		// Entre dos asignaciones queda el cambio hasta «Empezar».
 		run = finish(run, plan, 8 * min);
@@ -52,20 +54,21 @@ describe("cronómetro de la reunión", () => {
 		expect(begin(run, plan, 9.5 * min)).toBe(run);
 		expect(startOf(run, 2)).toBe(9 * min);
 		expect(runningKey(run, plan)).toBe("a");
-		// Antes de una canción no hay cambio.
+		// Antes de una canción también hay cambio.
 		run = finish(run, plan, 21 * min);
-		expect(phase(run, plan)).toEqual({ kind: "running", index: 3 });
+		expect(phase(run, plan)).toEqual({ kind: "change", next: 3 });
 		expect(overtimeMs(plan[2], endOf(run, 2)! - startOf(run, 2)!)).toBe(2 * min);
-		run = finish(finish(run, plan, 26 * min), plan, 55 * min);
+		run = begin(run, plan, 21 * min);
+		run = finish(begin(finish(run, plan, 26 * min), plan, 26 * min), plan, 55 * min);
 		expect(phase(run, plan)).toEqual({ kind: "finished" });
 		expect(overtimeMs(plan[4], endOf(run, 4)! - startOf(run, 4)!)).toBe(0);
 		expect(timerDisplay(run, plan, 99 * min)).toMatchObject({ label: "Reunión terminada", clock: "55:00", over: false });
 	});
 
 	it("deshacer quita el último toque completo", () => {
-		const run = finish(startRun(plan, 0), plan, 7 * min);
+		const run = begin(finish(startRun(plan, 0), plan, 7 * min), plan, 7 * min);
 		const back = undo(run)!;
-		expect(phase(back, plan)).toEqual({ kind: "running", index: 0 });
+		expect(phase(back, plan)).toEqual({ kind: "change", next: 1 });
 		expect(startOf(back, 1)).toBeNull();
 		expect(undo(startRun(plan, 0))).toBeNull();
 	});
@@ -84,20 +87,26 @@ describe("cronómetro de la reunión", () => {
 	it("lo que muestra: en curso, cambio y si se pasó", () => {
 		let run = startRun(plan, 0);
 		expect(timerDisplay(run, plan, 8 * min)).toMatchObject({ label: "Ahora", clock: "8:00", goal: "7:00", over: true });
-		run = finish(finish(run, plan, 7 * min), plan, 8 * min);
+		run = finish(begin(finish(run, plan, 7 * min), plan, 7 * min), plan, 8 * min);
 		expect(timerDisplay(run, plan, 8 * min + 30_000)).toMatchObject({ label: "Cambio · sigue", title: "Discurso", clock: "0:30", goal: "1:00", over: false });
 		expect(timerDisplay(run, plan, 9 * min + 1000).over).toBe(true);
 	});
 
 	it("fin de semana en orden", () => {
-		expect(weekendTimerPlan({}).map((i) => i.key)).toEqual(["song:talk", "talk", "song:watchtower", "watchtower", "song:closing"]);
-		expect(weekendTimerPlan({ watchtowerFirst: true }).map((i) => i.key)).toEqual(["song:watchtower", "watchtower", "song:closing", "talk", "song:talk"]);
+		expect(weekendTimerPlan({}).map((i) => i.key)).toEqual(["song:talk", "prayer:opening", "talk", "song:watchtower", "watchtower", "song:closing", "prayer:closing"]);
+		expect(weekendTimerPlan({ watchtowerFirst: true }).map((i) => i.key)).toEqual([
+			"song:watchtower", "prayer:opening", "watchtower", "song:closing", "talk", "song:talk", "prayer:closing",
+		]);
 		const normal = weekendTimerPlan({ closingSongNumber: 12, closingSongTitle: "Gran Dios" });
-		expect(normal.at(-1)!.title).toBe("Canción 12: Gran Dios y oración");
+		expect(normal.at(-2)!).toMatchObject({ title: "Canción 12: Gran Dios", minutes: 5 });
+		expect(normal.at(-1)!).toMatchObject({ title: "Oración", minutes: 2 });
+		// 5 + 2 + 30 + 5 + 60 + 5 + 2 = 109 minutos y 6 cambios de 1 minuto.
+		const starts = plannedStarts(normal, 0);
+		expect(starts.at(-1)! + 2 * min).toBe(115 * min);
 		expect(normal.find((i) => i.key === "watchtower")!.minutes).toBe(60);
 		const co = { overseerName: "SC", midweekTalk: { title: null, song: null }, publicTalk: { title: null, song: null }, finalTalk: { title: "Final", song: 3 } };
 		const visit = weekendTimerPlan({}, co);
-		expect(visit.map((i) => i.key)).toEqual(["song:talk", "talk", "song:watchtower", "watchtower", "co:final", "song:closing"]);
+		expect(visit.map((i) => i.key)).toEqual(["song:talk", "prayer:opening", "talk", "song:watchtower", "watchtower", "co:final", "song:closing", "prayer:closing"]);
 		expect(visit.find((i) => i.key === "watchtower")!.minutes).toBe(30);
 	});
 
@@ -114,17 +123,20 @@ describe("cronómetro de la reunión", () => {
 			],
 		};
 		const p = midweekTimerPlan(d, (a) => a.sectionType);
-		expect(p.map((i) => i.key)).toEqual(["song:opening", "intro", "t", "s1", "song:middle", "c", "conclusion", "song:closing"]);
-		expect(p[0]).toMatchObject({ minutes: 7, title: "Canción y oración" });
-		expect(p[2].minutes).toBe(10);
-		expect(p[5]).toMatchObject({ minutes: 30, title: "Estudio bíblico de la congregación" });
-		// Sin oración inicial: solo los 5 minutos de la canción.
-		expect(midweekTimerPlan({ ...d, skipOpeningPrayer: true }, (a) => a.id)[0].minutes).toBe(5);
+		expect(p.map((i) => i.key)).toEqual(["song:opening", "prayer:opening", "intro", "t", "s1", "song:middle", "c", "conclusion", "song:closing", "prayer:closing"]);
+		expect(p[0]).toMatchObject({ minutes: 5, title: "Canción" });
+		expect(p[1]).toMatchObject({ minutes: 2, title: "Oración" });
+		expect(p[3].minutes).toBe(10);
+		expect(p[6]).toMatchObject({ minutes: 30, title: "Estudio bíblico de la congregación" });
+		// Cada paso con su minuto de cambio: 5+2+1+10+3+5+30+3+5+2 = 66 y 9 cambios.
+		expect(plannedStarts(p, 0).at(-1)! + 2 * min).toBe(75 * min);
+		// Sin oración inicial: no hay esa oración.
+		expect(midweekTimerPlan({ ...d, skipOpeningPrayer: true }, (a) => a.id).map((i) => i.key)).not.toContain("prayer:opening");
 		// Visita: el discurso de servicio reemplaza al estudio y la canción final es la del superintendente.
 		const co = { overseerName: "SC", midweekTalk: { title: "Servicio", song: 44 }, publicTalk: { title: null, song: null }, finalTalk: { title: null, song: null } };
 		const v = midweekTimerPlan({ ...d, coVisit: co }, (a) => a.id);
-		expect(v.map((i) => i.key)).toEqual(["song:opening", "intro", "t", "s1", "song:middle", "co:service", "conclusion", "song:closing"]);
-		expect(v.at(-1)!.title).toBe("Canción 44 y oración");
+		expect(v.map((i) => i.key)).toEqual(["song:opening", "prayer:opening", "intro", "t", "s1", "song:middle", "co:service", "conclusion", "song:closing", "prayer:closing"]);
+		expect(v.at(-2)!.title).toBe("Canción 44");
 	});
 
 	it("quién puede usarlo", () => {

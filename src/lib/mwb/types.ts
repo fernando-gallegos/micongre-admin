@@ -24,6 +24,10 @@ export interface ParsedProgram {
 	 * `christian_living`, las demás `living_custom`. */
 	livingParts: ParsedLivingPart[];
 	cbs: ParsedProgramPart;
+	/** Documento de la semana en la guía (MEPS docid, el nombre del capítulo del EPUB): para abrir la parte en JW Library. */
+	docId: number | null;
+	/** Párrafo del encabezado de cada parte numerada (data-pid), por número de parte. */
+	pars: Record<number, number>;
 }
 
 export interface ParsedLivingPart {
