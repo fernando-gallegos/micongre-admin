@@ -88,6 +88,8 @@ function MemberRow({ member, open, onToggle }: { member: Member; open: boolean; 
 export function MyGroup({ group, canRequestData = false }: { group: Group | null; canRequestData?: boolean }) {
 	const [requestOpen, setRequestOpen] = useState(false);
 	const [openMember, setOpenMember] = useState<string | null>(null);
+	// Por omisión solo se ve el nombre del grupo; al tocarlo se muestran todos.
+	const [expanded, setExpanded] = useState(false);
 
 	return (
 		<section>
@@ -110,13 +112,25 @@ export function MyGroup({ group, canRequestData = false }: { group: Group | null
 			) : (
 				<List>
 					{/* El grupo en grande, de lado a lado, con su color. */}
-					<div className="px-4 py-4" style={group.color ? { backgroundColor: `${group.color}1f` } : undefined}>
-						<p className="font-display text-2xl font-medium leading-tight" style={{ color: group.color ?? undefined }}>
-							{group.name}
-						</p>
-					</div>
+					<button
+						type="button"
+						onClick={() => setExpanded((v) => !v)}
+						aria-expanded={expanded}
+						className="flex w-full items-center gap-3 px-4 py-4 text-left"
+						style={group.color ? { backgroundColor: `${group.color}1f` } : undefined}
+					>
+						<span className="min-w-0 flex-1">
+							<span className="block font-display text-2xl font-medium leading-tight" style={{ color: group.color ?? undefined }}>
+								{group.name}
+							</span>
+							<span className="mt-0.5 block text-xs text-ink-soft">
+								{(group.people ?? group.members).length} {(group.people ?? group.members).length === 1 ? "persona" : "personas"} · {expanded ? "Ocultar" : "Ver"} integrantes
+							</span>
+						</span>
+						<ChevronDown size={20} className={`shrink-0 text-ink-soft transition-transform ${expanded ? "rotate-180" : ""}`} />
+					</button>
 					{/* Para contactar a cualquiera: primero el superintendente, luego el auxiliar y luego los demás por nombre. */}
-					{(group.people ?? group.members).map((m) => (
+					{expanded && (group.people ?? group.members).map((m) => (
 						<MemberRow key={m.id} member={m} open={openMember === m.id} onToggle={() => setOpenMember((id) => (id === m.id ? null : m.id))} />
 					))}
 				</List>

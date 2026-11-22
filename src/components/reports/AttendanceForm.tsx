@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Check, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { attendanceMessage, whatsappShare } from "@/lib/attendance/whatsapp";
+import { formatLongDate } from "@/lib/dateFormat";
 
 const NO_SPINNER = "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
@@ -18,7 +20,15 @@ function Counter({
 	onChange: (value: string) => void;
 	size: "lg" | "md";
 }) {
-	const step = (delta: number) => onChange(String(Math.max(0, Number(value || 0) + delta)));
+	const step = (delta: number) => {
+		// Vibración corta en cada toque (en los teléfonos que lo permiten; iPhone no lo deja a las páginas web).
+		try {
+			navigator.vibrate?.(10);
+		} catch {
+			// sin vibración
+		}
+		onChange(String(Math.max(0, Number(value || 0) + delta)));
+	};
 	const big = size === "lg";
 	const stepCls = `flex shrink-0 items-center justify-center rounded-full border border-border text-ink transition-colors hover:bg-surface-alt ${
 		big ? "h-14 w-14" : "h-11 w-11"
@@ -111,7 +121,27 @@ export function AttendanceForm({
 				{saved ? <Check size={18} /> : null}
 				{loading ? "Guardando..." : saved ? "Guardado" : "Guardar asistencia"}
 			</Button>
+			<AttendanceWhatsApp label={meetingType === "midweek" ? "Entre semana" : "Fin de semana"} date={meetingDate} inPerson={inPersonCount} zoom={zoomCount} />
 		</div>
+	);
+}
+
+/** «Enviar por WhatsApp»: abre WhatsApp con la asistencia escrita; ahí se elige el chat o grupo (no se integra nada de WhatsApp). */
+export function AttendanceWhatsApp({ label, date, inPerson, zoom }: { label: string; date: string; inPerson: string; zoom: string }) {
+	const disabled = inPerson.trim() === "";
+	const href = whatsappShare(attendanceMessage(label, formatLongDate(date), Number(inPerson || 0), Number(zoom || 0)));
+	return (
+		<a
+			href={disabled ? undefined : href}
+			target="_blank"
+			rel="noopener noreferrer"
+			aria-disabled={disabled}
+			className={`inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-border px-4 text-sm font-semibold ${
+				disabled ? "pointer-events-none opacity-50" : "text-ink hover:bg-surface-alt"
+			}`}
+		>
+			Enviar por WhatsApp
+		</a>
 	);
 }
 

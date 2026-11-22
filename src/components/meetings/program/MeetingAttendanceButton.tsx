@@ -5,7 +5,7 @@ import { Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AttendanceCounter } from "@/components/reports/AttendanceForm";
+import { AttendanceCounter, AttendanceWhatsApp } from "@/components/reports/AttendanceForm";
 import { formatLongDate } from "@/lib/dateFormat";
 
 /** La reunión que se ve (para registrar su asistencia). `date` = fecha real de la reunión. */
@@ -118,6 +118,7 @@ function AttendanceDialog({
 				<AttendanceCounter label="Presentes en el salón" size="lg" value={inPerson} onChange={setInPerson} />
 				<AttendanceCounter label="Conectados por Zoom" size="md" value={zoom} onChange={setZoom} />
 				<span className="rounded-full bg-accent-soft px-5 py-1.5 text-base font-semibold text-accent">Total: {total}</span>
+				<AttendanceWhatsApp label={target.label} date={target.date} inPerson={inPerson} zoom={zoom} />
 				{message && <p className="text-sm text-red-600">{message}</p>}
 				<div className="flex w-full justify-end gap-2">
 					<Button variant="secondary" onClick={onClose} disabled={saving}>
