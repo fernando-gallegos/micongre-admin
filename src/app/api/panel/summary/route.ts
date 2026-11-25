@@ -16,7 +16,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 import { addDays, mondayOf, parseISODate, toISODate } from "@/lib/mwb/dates";
 import { territoryMapKindsFor } from "@/lib/territories/mapAccess";
-import { isOver, nicaraguaNow, selectUpcoming, territoryVisible } from "@/lib/panel/upcoming";
+import { isOver, nextTerritorySession, nicaraguaNow, selectUpcoming, territoryVisible } from "@/lib/panel/upcoming";
 import { time12 } from "@/lib/export/builders/meetingDates";
 import { getUserAssignments } from "@/lib/queries/panel";
 import { PRIVILEGE_CODES, SERVICE_COMMITTEE_APPOINTMENTS } from "@/lib/rbac/roles";
@@ -88,10 +88,11 @@ export async function GET() {
 
 		// Próximas: solo lo de la semana en curso, hasta el domingo; el lunes empieza la semana siguiente (no «los próximos 7 días»).
 		const horizon = weekEnd;
-		// Un territorio pendiente sale desde el día antes de su primera salida de predicación y hasta que el encargado lo resuelva
+		// Un territorio pendiente sale solo desde el día antes de su siguiente salida de predicación y hasta 2 horas después de ella
 		// (`territoryVisible`); uno ya resuelto es historial.
 		const isPendingTerritory = (a: (typeof assignments)[number]) => a.territory?.status === "assigned";
-		const showTerritory = (a: (typeof assignments)[number]) => isPendingTerritory(a) && territoryVisible(a.firstSessionDate, today);
+		for (const a of assignments) if (isPendingTerritory(a)) a.nextSessionAt = nextTerritorySession(a.sessions, now);
+		const showTerritory = (a: (typeof assignments)[number]) => isPendingTerritory(a) && territoryVisible(a.nextSessionAt, today);
 		const isResolvedTerritory = (a: (typeof assignments)[number]) => !!a.territory && !isPendingTerritory(a);
 		// Solo lo que sigue de cada tipo (ver lib/panel/upcoming.ts).
 		const upcoming = selectUpcoming(
@@ -108,7 +109,9 @@ export async function GET() {
 					(isResolvedTerritory(a) ? a.date >= historyFrom : isOver(a, now) && (a.dateEnd ?? a.date) >= historyFrom),
 			)
 			.reverse()
-			.map(({ bucket: _b, territoryIds: _t, when: _w, time: _time, nextSession: _n, firstSessionDate: _f, ...rest }) => rest);
+			// Solo lo más reciente: hasta 3.
+			.slice(0, 3)
+			.map(({ bucket: _b, territoryIds: _t, when: _w, time: _time, nextSession: _n, sessions: _s, nextSessionAt: _a, timeLabel: _l, ...rest }) => rest);
 
 		let group = null;
 		if (me?.fieldServiceGroupId) {

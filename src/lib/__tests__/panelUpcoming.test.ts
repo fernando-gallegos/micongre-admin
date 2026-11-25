@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOver, nicaraguaNow, selectUpcoming, territoryVisible, untilOf } from "@/lib/panel/upcoming";
+import { isOver, nextTerritorySession, nicaraguaNow, selectUpcoming, territoryVisible, untilOf } from "@/lib/panel/upcoming";
 import type { PanelAssignment } from "@/lib/queries/panel";
 
 const w = { today: "2026-11-03", weekStart: "2026-11-02", weekEnd: "2026-11-08" };
@@ -36,17 +36,25 @@ describe("Mis asignaciones: solo lo que sigue", () => {
 		expect(labels(out)).toEqual(["Limpieza 1", "Congregación 1", "Pública 1"]);
 	});
 
-	it("el capitán no ve la salida repetida: la fecha de la siguiente se agrega a su territorio", () => {
+	it("el capitán ve su territorio como su predicación (hora y territorio) y al tocarlo abre ese día; la salida no se repite", () => {
 		const out = selectUpcoming(
 			[
-				a({ date: "2026-10-20", meetingType: "territory", label: "Territorio 4", territory: { assignmentId: "a", territoryId: "t4", status: "assigned", comment: null } }),
-				a({ date: "2026-11-05", meetingType: "preaching", label: "Salida t4", bucket: "preaching:group", territoryIds: ["t4"], when: "05/nov 8:45 a. m." }),
-				a({ date: "2026-11-12", meetingType: "preaching", label: "Salida t4 b", bucket: "preaching:group", territoryIds: ["t4"], when: "12/nov 8:45 a. m." }),
+				a({
+					date: "2026-10-20",
+					meetingType: "territory",
+					label: "Territorio 4",
+					territory: { assignmentId: "a", territoryId: "t4", status: "assigned", comment: null },
+					nextSessionAt: { date: "2026-11-05", time: "08:45" },
+				}),
+				a({ date: "2026-11-05", time: "08:45", meetingType: "preaching", label: "Salida t4", bucket: "preaching:group", territoryIds: ["t4"], timeLabel: "8:45 a.m." }),
+				a({ date: "2026-11-12", time: "08:45", meetingType: "preaching", label: "Salida t4 b", bucket: "preaching:group", territoryIds: ["t4"] }),
 			],
 			w,
 		);
-		expect(labels(out)).toEqual(["Territorio 4 · Salida: 05/nov 8:45 a. m."]);
+		expect(labels(out)).toEqual(["Predicación: 8:45 a.m. Territorio 4"]);
+		expect(out[0]).toMatchObject({ openDate: "2026-11-05", until: "2026-11-05T10:45" });
 		expect(out[0]).not.toHaveProperty("bucket");
+		expect(out[0]).not.toHaveProperty("nextSessionAt");
 	});
 
 	it("discursos: todos los de esta semana (o el siguiente) y quienes salen, solo esta semana", () => {
@@ -96,12 +104,23 @@ describe("untilOf", () => {
 });
 
 describe("territorio pendiente en Mi Panel", () => {
-	it("sale desde el día antes de su primera salida y sigue después; sin salida, no sale", () => {
-		expect(territoryVisible("2026-11-20", "2026-11-18")).toBe(false);
-		expect(territoryVisible("2026-11-20", "2026-11-19")).toBe(true);
-		expect(territoryVisible("2026-11-20", "2026-11-20")).toBe(true);
-		expect(territoryVisible("2026-11-20", "2026-11-25")).toBe(true);
-		expect(territoryVisible("2026-12-01", "2026-11-30")).toBe(true);
+	it("sale solo desde el día antes de su siguiente salida; sin salida, no sale", () => {
+		expect(territoryVisible({ date: "2026-11-20" }, "2026-11-18")).toBe(false);
+		expect(territoryVisible({ date: "2026-11-20" }, "2026-11-19")).toBe(true);
+		expect(territoryVisible({ date: "2026-11-20" }, "2026-11-20")).toBe(true);
+		expect(territoryVisible({ date: "2026-12-01" }, "2026-11-30")).toBe(true);
 		expect(territoryVisible(undefined, "2026-11-18")).toBe(false);
+	});
+
+	it("la salida que toca es la primera que no ha terminado (2 horas después de su hora)", () => {
+		const sessions = [
+			{ date: "2026-11-28", time: "08:45" },
+			{ date: "2026-11-05", time: "08:45" },
+		];
+		expect(nextTerritorySession(sessions, { date: "2026-11-05", minutes: 10 * 60 + 30 })).toEqual({ date: "2026-11-05", time: "08:45" });
+		expect(nextTerritorySession(sessions, { date: "2026-11-05", minutes: 10 * 60 + 45 })).toEqual({ date: "2026-11-28", time: "08:45" });
+		expect(nextTerritorySession(sessions, { date: "2026-11-29", minutes: 0 })).toBeUndefined();
+		// El 25 la siguiente es la del 28: todavía no se muestra (solo desde el 27).
+		expect(territoryVisible(nextTerritorySession(sessions, { date: "2026-11-25", minutes: 0 }), "2026-11-25")).toBe(false);
 	});
 });

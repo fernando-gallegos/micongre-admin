@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Check, Map as MapIcon, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { IconButton, List, SectionLabel } from "@/components/ui/Layout";
@@ -94,9 +95,11 @@ export function MyAssignments({
 							: formatShortDate(item.date);
 						return (
 							<div key={i} className="flex items-center gap-1 py-3 pl-4 pr-2">
-								<div className="min-w-0 flex-1 py-0.5">
+								<TextBlock openDate={past ? undefined : item.openDate}>
 									{pending ? (
-										<p className="text-xs font-semibold text-warn">Pendiente</p>
+										<p className="text-xs font-semibold text-warn">
+											Pendiente{item.openDate ? ` · ${formatShortDate(item.openDate)}` : ""}
+										</p>
 									) : (
 										<p className="text-xs font-semibold text-ink-soft">
 											{dates} · {MEETING_TYPE_LABEL[item.meetingType]}
@@ -111,7 +114,7 @@ export function MyAssignments({
 									{territory && !pending && territory.comment && (
 										<p className="mt-0.5 text-[13px] text-ink-soft">«{territory.comment}»</p>
 									)}
-								</div>
+								</TextBlock>
 								{item.mapUrl && (
 									<a
 										href={item.mapUrl}
@@ -228,5 +231,15 @@ function DepartureSelect({ choice, many, onChanged }: { choice: DepartureChoice;
 			</select>
 			{error && <span className="text-xs text-red-600">{error}</span>}
 		</label>
+	);
+}
+
+/** El texto de la tarjeta. La predicación (también el territorio del capitán) abre el Calendario en el día de la salida. */
+function TextBlock({ openDate, children }: { openDate?: string; children: React.ReactNode }) {
+	if (!openDate) return <div className="min-w-0 flex-1 py-0.5">{children}</div>;
+	return (
+		<Link href={`/calendar?date=${openDate}`} className="-my-1 min-w-0 flex-1 rounded-xl py-1.5 hover:bg-surface-alt" title="Ver la predicación de ese día">
+			{children}
+		</Link>
 	);
 }

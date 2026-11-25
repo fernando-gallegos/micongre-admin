@@ -74,9 +74,15 @@ export interface PanelAssignment {
 	territoryIds?: string[];
 	when?: string;
 	nextSession?: string;
-	/** Territorio pendiente: fecha de su primera salida de predicación programada en esta asignación (Mi Panel lo muestra desde el
-	 * día antes, `territoryVisible`); sin salida, undefined. Solo del servidor. */
-	firstSessionDate?: string;
+	/** Territorio pendiente: sus salidas de predicación de esta asignación (fecha y hora). Mi Panel lo muestra solo desde el día antes
+	 * de la siguiente y hasta 2 horas después de ella (`nextTerritorySession`, `territoryVisible`). Solo del servidor. */
+	sessions?: { date: string; time: string }[];
+	/** Territorio pendiente que se muestra: la salida que toca. Solo del servidor. */
+	nextSessionAt?: { date: string; time: string };
+	/** Predicación: la hora ya escrita («8:45 a. m.»), para el territorio del capitán. Solo del servidor. */
+	timeLabel?: string;
+	/** Predicación: día que abre el Calendario al tocar la tarjeta (AAAA-MM-DD). */
+	openDate?: string;
 	/** Predicación: territorio con mapa que la persona puede abrir (botón de mapa en Mi Panel). */
 	mapTerritoryId?: string;
 	/** Solo del servidor: territorios dibujados de la salida, antes de filtrar por lo que la persona puede ver. */
@@ -426,7 +432,9 @@ export async function getUserAssignments(db: Database, userId: string): Promise<
 					out.push({
 						date: s.sessionDate,
 						meetingType: "preaching",
-						label: `Predicación · ${time12(s.sessionTime)}${names ? ` — ${names}` : ""}${s.note ? ` (${s.note})` : ""}`,
+						label: `Predicación: ${time12(s.sessionTime)}${names ? ` ${names}` : ""}${s.note ? ` (${s.note})` : ""}`,
+						openDate: s.sessionDate,
+						timeLabel: time12(s.sessionTime) ?? s.sessionTime,
 						detail: places.join("\n") || undefined,
 						bucket: s.kind === "public_preaching" ? "preaching:public" : "preaching:group",
 						time: s.sessionTime,
@@ -460,25 +468,29 @@ export async function getUserAssignments(db: Database, userId: string): Promise<
 				.innerJoin(territories, eq(territories.id, territoryAssignments.territoryId))
 				.where(eq(territoryAssignments.assigneeUserId, userId));
 
-			// Primera salida de predicación de cada territorio pendiente en esta asignación (la de `assignment_id`, o en las viejas sin él,
-			// una salida con ese territorio desde el día en que se asignó).
+			// Salidas de predicación de cada territorio pendiente en esta asignación (las de `assignment_id`, o en las viejas sin él,
+			// las salidas con ese territorio desde el día en que se asignó).
 			const pendingRows = territoryRows.filter((r) => r.status === "assigned");
-			const sessionRows: { territoryId: string; assignmentId: string | null; sessionDate: string }[] = [];
+			const sessionRows: { territoryId: string; assignmentId: string | null; sessionDate: string; sessionTime: string }[] = [];
 			for (const ids of chunked([...new Set(pendingRows.map((r) => r.territoryId))], 90)) {
 				sessionRows.push(
 					...(await db
-						.select({ territoryId: preachingSessionTerritories.territoryId, assignmentId: preachingSessionTerritories.assignmentId, sessionDate: preachingSessions.sessionDate })
+						.select({
+							territoryId: preachingSessionTerritories.territoryId,
+							assignmentId: preachingSessionTerritories.assignmentId,
+							sessionDate: preachingSessions.sessionDate,
+							sessionTime: preachingSessions.sessionTime,
+						})
 						.from(preachingSessionTerritories)
 						.innerJoin(preachingSessions, eq(preachingSessions.id, preachingSessionTerritories.sessionId))
 						.where(inArray(preachingSessionTerritories.territoryId, ids))),
 				);
 			}
-			const firstSession = (row: (typeof territoryRows)[number]): string | undefined => {
+			const sessionsOf = (row: (typeof territoryRows)[number]) => {
 				const since = nicaraguaDate(row.assignedAt);
 				return sessionRows
 					.filter((s) => s.territoryId === row.territoryId && (s.assignmentId ? s.assignmentId === row.assignmentId : s.sessionDate >= since))
-					.map((s) => s.sessionDate)
-					.sort()[0];
+					.map((s) => ({ date: s.sessionDate, time: s.sessionTime }));
 			};
 
 			for (const row of territoryRows) {
@@ -490,7 +502,7 @@ export async function getUserAssignments(db: Database, userId: string): Promise<
 					label: row.status === "assigned" ? title : `${title} (${resolvedLabel})`,
 					detail: row.meetingPlace?.trim() || undefined,
 					territory: { assignmentId: row.assignmentId, territoryId: row.territoryId, status: row.status, comment: row.comment },
-					firstSessionDate: row.status === "assigned" ? firstSession(row) : undefined,
+					sessions: row.status === "assigned" ? sessionsOf(row) : undefined,
 				});
 			}
 			return out;

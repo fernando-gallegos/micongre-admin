@@ -5,6 +5,7 @@
 // - Territorios a su cargo: todos los pendientes (cada uno tiene sus acciones). La salida de predicación que es solo sobre
 //   sus territorios no se repite: su fecha y hora se agregan al territorio.
 // - Todo lo demás (limpieza, predicación con la congregación o el grupo, predicación pública, pastoreo): solo el siguiente.
+import { time12 } from "@/lib/export/builders/meetingDates";
 import type { PanelAssignment } from "@/lib/queries/panel";
 
 export interface UpcomingWindow {
@@ -59,13 +60,23 @@ export function untilOf(a: Pick<PanelAssignment, "date" | "dateEnd" | "time" | "
 	return end.toISOString().slice(0, 16);
 }
 
-/** Un territorio pendiente sale en Mi Panel desde el día antes de su primera salida de predicación programada y sigue hasta que el
- * capitán lo completa o lo devuelve; sin salida programada no sale. `today` = AAAA-MM-DD (Nicaragua). */
-export function territoryVisible(firstSessionDate: string | undefined, today: string): boolean {
-	if (!firstSessionDate) return false;
+/** La salida que toca de un territorio pendiente: la primera que aún no termina (2 horas después de su hora). */
+export function nextTerritorySession(
+	sessions: { date: string; time: string }[] | undefined,
+	now: { date: string; minutes: number },
+): { date: string; time: string } | undefined {
+	return [...(sessions ?? [])]
+		.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+		.find((s) => !isOver({ date: s.date, time: s.time, meetingType: "preaching" }, now));
+}
+
+/** Un territorio pendiente sale en Mi Panel solo desde el día antes de su siguiente salida de predicación y hasta 2 horas después de
+ * ella (luego se oculta hasta el día antes de la siguiente); sin salida programada no sale. `today` = AAAA-MM-DD (Nicaragua). */
+export function territoryVisible(next: { date: string } | undefined, today: string): boolean {
+	if (!next) return false;
 	const d = new Date(`${today}T00:00:00Z`);
 	d.setUTCDate(d.getUTCDate() + 1);
-	return firstSessionDate <= d.toISOString().slice(0, 10);
+	return next.date <= d.toISOString().slice(0, 10);
 }
 
 /** Recibe las próximas (ya filtradas por fecha) y deja solo lo que sigue de cada tipo, en orden de fecha. */
@@ -90,8 +101,20 @@ export function selectUpcoming(items: PanelAssignment[], w: UpcomingWindow): Pan
 			}
 		}
 	}
+	// El territorio del capitán se presenta como su predicación: «Predicación: 8:45 a. m. Territorio 4», y al tocarlo abre ese día.
 	for (const t of territories) {
-		out.push(t.nextSession ? { ...t, label: `${t.label} · Salida: ${t.nextSession}` } : t);
+		const at = t.nextSessionAt;
+		if (!at) {
+			out.push(t);
+			continue;
+		}
+		const session = sorted.find((a) => isCaptainSession(a) && a.date === at.date && a.time === at.time && a.territoryIds!.includes(t.territory!.territoryId));
+		out.push({
+			...t,
+			label: `Predicación: ${session?.timeLabel ?? time12(at.time) ?? at.time} ${t.label}`,
+			openDate: at.date,
+			until: untilOf({ date: at.date, time: at.time, meetingType: "preaching" }),
+		});
 	}
 
 	const rest = sorted.filter((a) => a.meetingType !== "territory" && !isCaptainSession(a));
@@ -117,8 +140,8 @@ export function selectUpcoming(items: PanelAssignment[], w: UpcomingWindow): Pan
 
 	return out
 		.sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? ""))
-		.map(({ bucket: _b, territoryIds: _t, when: _w, time: _time, nextSession: _n, firstSessionDate: _f, ...rest }) => {
-			const until = untilOf({ ...rest, time: _time });
+		.map(({ bucket: _b, territoryIds: _t, when: _w, time: _time, nextSession: _n, sessions: _s, nextSessionAt: _a, timeLabel: _l, ...rest }) => {
+			const until = rest.until ?? untilOf({ ...rest, time: _time });
 			return until ? { ...rest, until } : rest;
 		});
 }

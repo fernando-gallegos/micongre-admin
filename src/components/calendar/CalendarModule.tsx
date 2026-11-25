@@ -85,6 +85,15 @@ export function CalendarModule() {
 	const [canManage, setCanManage] = useState(false);
 	const today = iso(new Date());
 
+	// «?date=AAAA-MM-DD» (p. ej. al tocar una predicación en Mi Panel): abre ese mes y ese día.
+	useEffect(() => {
+		const date = new URLSearchParams(window.location.search).get("date");
+		if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+		const [y, m] = date.split("-").map(Number);
+		setMonth(new Date(y, m - 1, 1));
+		setOpen(date);
+	}, []);
+
 	useEffect(() => {
 		setData(null);
 		fetch(`/api/calendar?month=${monthKey(month)}${all ? "&all=1" : ""}`)

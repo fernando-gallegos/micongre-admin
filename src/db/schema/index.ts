@@ -25,3 +25,4 @@ export * from "./events";
 export * from "./literature";
 export * from "./pioneer";
 export * from "./dataRequests";
+export * from "./announcements";

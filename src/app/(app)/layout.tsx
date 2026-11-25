@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { SessionKeepAlive } from "@/components/auth/SessionKeepAlive";
+import { WhatsNew } from "@/components/announcements/WhatsNew";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getDb } from "@/db/client";
@@ -20,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 	return (
 		<div className="flex min-h-dvh">
 			<SessionKeepAlive />
+			<WhatsNew />
 			<Sidebar role={session.role} privilegeCodes={session.privilegeCodes} fullName={session.fullName} />
 			<div className="flex min-w-0 flex-1 flex-col print:block">
 				<main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-[calc(72px+env(safe-area-inset-bottom)+88px)] pt-7 md:px-10 md:pb-16 md:pt-10 print:max-w-none print:p-0">
