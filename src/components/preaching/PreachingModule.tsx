@@ -9,6 +9,7 @@ import { Chip, ChipGroup, Fab, IconButton, List, PageHeader } from "@/components
 import { Modal } from "@/components/ui/Modal";
 import { PageLoader } from "@/components/ui/Spinner";
 import { WhatsAppPreachingButtons } from "@/components/preaching/WhatsAppPreaching";
+import { DayCaptainsButton } from "@/components/preaching/DayCaptains";
 import { TerritoryMapViewer } from "@/components/territories/TerritoryMapViewer";
 import { formatLongDate, formatShortDate } from "@/lib/dateFormat";
 import { TERRITORY_KIND_LABEL, departureText, type Departure, type TerritoryKind } from "@/lib/territories/geo";
@@ -20,6 +21,8 @@ interface SessionRow {
 	note: string | null;
 	kind: TerritoryKind;
 	recurring: boolean;
+	/** Flujo 2: el capitán de la salida (null = flujo 1). */
+	captainUserId?: string | null;
 	notifiedAt: string | null;
 	territories: {
 		id: string;
@@ -39,6 +42,16 @@ interface Options {
 	groups: { id: string; name: string; color: string | null }[];
 	people: { id: string; fullName: string }[];
 	defaultTime?: string;
+	/** Flujo 2 («capitán fijo por día»). */
+	captains: { weekday: number; kind: TerritoryKind; userId: string; fullName: string }[];
+	allTerritories: { id: string; number: string; name: string | null; kind: TerritoryKind; assigneeName: string | null; assigneeUserId: string | null; departures: Departure[] }[];
+	captainCandidates: Record<TerritoryKind, { id: string; fullName: string }[]>;
+}
+
+/** Día de la semana de una fecha AAAA-MM-DD: 1 = lunes … 7 = domingo (igual que lib/preaching/captains.ts). */
+function weekdayOf(date: string): number {
+	const day = new Date(`${date}T12:00:00Z`).getUTCDay();
+	return day === 0 ? 7 : day;
 }
 
 const ERRORS: Record<string, string> = {
@@ -49,6 +62,7 @@ const ERRORS: Record<string, string> = {
 	mixed_kinds: "Los territorios de una misma salida deben ser del mismo tipo.",
 	invalid_targets: "Revisa a quién se asigna: territorios generales → toda la congregación o grupos; predicación pública → publicadores.",
 	invalid_departure: "El punto de salida elegido ya no existe en el mapa del territorio.",
+	captain_invalid: "El capitán no puede recibir territorios de ese tipo (le falta el privilegio «Asignable…»).",
 };
 
 function time12(value: string): string {
@@ -181,7 +195,7 @@ export function PreachingModule() {
 
 	return (
 		<div className="flex flex-col gap-5">
-			<PageHeader title="Predicación" subtitle="Salidas a predicar sobre territorios ya asignados" actions={<WhatsAppPreachingButtons />} />
+			<PageHeader title="Predicación" subtitle="Salidas a predicar sobre territorios ya asignados" actions={<><DayCaptainsButton /><WhatsAppPreachingButtons /></>} />
 
 			<ChipGroup>
 				{(
@@ -439,6 +453,9 @@ function SessionForm({ session, initialDate, onClose, onSaved }: { session: Sess
 	const [search, setSearch] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// Flujo 2: «tipo|persona» del capitán de la salida; "" = flujo 1 (el territorio ya viene asignado). `undefined` = aún sin elegir:
+	// se toma el capitán fijo del día, si lo hay.
+	const [captain, setCaptain] = useState<string | undefined>(session ? (session.captainUserId ? `${session.kind}|${session.captainUserId}` : "") : undefined);
 
 	useEffect(() => {
 		fetch("/api/preaching/options")
@@ -450,11 +467,28 @@ function SessionForm({ session, initialDate, onClose, onSaved }: { session: Sess
 			});
 	}, [session]);
 
-	// El tipo lo marca el primer territorio elegido: los demás deben ser del mismo tipo.
+	// Flujo 2: capitanes fijos de ese día. Una salida nueva en un día con capitán fijo empieza con el primero.
+	const dayCaptains = useMemo(() => (options?.captains ?? []).filter((c) => c.weekday === weekdayOf(date)), [options, date]);
+	const captainValue = captain ?? (dayCaptains[0] ? `${dayCaptains[0].kind}|${dayCaptains[0].userId}` : "");
+	const [captainKind, captainUserId] = captainValue ? (captainValue.split("|") as [TerritoryKind, string]) : [null, null];
+	const flow2 = !!captainUserId;
+
+	// El tipo lo marca el capitán (flujo 2) o el primer territorio elegido (flujo 1): los demás deben ser del mismo tipo.
 	const kind: TerritoryKind | null = useMemo(() => {
+		if (captainKind) return captainKind;
 		const first = options?.territories.find((t) => territoryIds.includes(t.id));
 		return first?.kind ?? null;
-	}, [options, territoryIds]);
+	}, [options, territoryIds, captainKind]);
+
+	// Flujo 2: todos los territorios de ese tipo; primero el suyo, luego los libres; los de otra persona dicen de quién son (al guardar,
+	// pasan al capitán).
+	const flow2Territories = useMemo(() => {
+		if (!flow2) return [];
+		const rank = (t: Options["allTerritories"][number]) => (t.assigneeUserId === captainUserId ? 0 : t.assigneeUserId ? 2 : 1);
+		return (options?.allTerritories ?? [])
+			.filter((t) => t.kind === captainKind)
+			.sort((a, b) => rank(a) - rank(b) || a.number.localeCompare(b.number, undefined, { numeric: true }));
+	}, [options, flow2, captainKind, captainUserId]);
 
 	// Una salida editada puede tener un territorio cuya asignación ya terminó: se muestra igual para poder quitarlo.
 	const territoryList = useMemo(() => {
@@ -489,6 +523,7 @@ function SessionForm({ session, initialDate, onClose, onSaved }: { session: Sess
 				kind === "public_preaching"
 					? { congregation: false, groupIds: [], userIds }
 					: { congregation, groupIds: congregation ? [] : groupIds, userIds: [] },
+			captainUserId: flow2 ? captainUserId : null,
 		};
 		const response = await fetch(session ? `/api/preaching/${session.id}` : "/api/preaching", {
 			method: session ? "PATCH" : "POST",
@@ -521,6 +556,77 @@ function SessionForm({ session, initialDate, onClose, onSaved }: { session: Sess
 						<Input label="Hora" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
 					</div>
 
+					{(dayCaptains.length > 0 || flow2) && (
+						<label className="flex flex-col gap-1.5">
+							<span className="text-sm font-medium text-ink">Capitán</span>
+							<select
+								value={captainValue}
+								onChange={(e) => {
+									setCaptain(e.target.value);
+									setTerritoryIds([]);
+								}}
+								className="min-h-12 rounded-2xl border border-border bg-surface px-3 text-base text-ink sm:text-sm"
+							>
+								{dayCaptains.length > 0 && (
+									<optgroup label="Capitán fijo de este día">
+										{dayCaptains.map((c) => (
+											<option key={`${c.kind}|${c.userId}`} value={`${c.kind}|${c.userId}`}>
+												{c.fullName} · {TERRITORY_KIND_LABEL[c.kind]}
+											</option>
+										))}
+									</optgroup>
+								)}
+								{(["general", "public_preaching"] as const).map((k) => (
+									<optgroup key={k} label={`Suplente · ${TERRITORY_KIND_LABEL[k]}`}>
+										{(options.captainCandidates[k] ?? [])
+											.filter((u) => !dayCaptains.some((c) => c.kind === k && c.userId === u.id))
+											.map((u) => (
+												<option key={`${k}|${u.id}`} value={`${k}|${u.id}`}>
+													{u.fullName}
+												</option>
+											))}
+									</optgroup>
+								))}
+								<option value="">Sin capitán fijo (territorio ya asignado)</option>
+							</select>
+							<span className="text-xs text-ink-soft">
+								{flow2
+									? "Elige solo el territorio: al guardar se le asigna al capitán y se devuelven los que tenía."
+									: "Se usan los territorios que ya están asignados."}
+							</span>
+						</label>
+					)}
+
+					{flow2 && (
+						<div className="flex flex-col gap-1.5">
+							<span className="text-sm font-medium text-ink">Territorio</span>
+							<div className="flex max-h-56 flex-col overflow-y-auto rounded-2xl border border-border">
+								{flow2Territories.map((t) => (
+									<label key={t.id} className="flex items-start gap-3 border-b border-border px-3 py-2.5 last:border-b-0">
+										<input
+											type="radio"
+											name="flow2-territory"
+											className="mt-1 h-5 w-5 shrink-0 accent-accent"
+											checked={territoryIds[0] === t.id}
+											onChange={() => setTerritoryIds([t.id])}
+										/>
+										<span className="min-w-0 text-sm text-ink">
+											<span className="font-semibold">
+												{t.number}
+												{t.name ? ` — ${t.name}` : ""}
+											</span>
+											<span className="block text-xs text-ink-soft">
+												{t.assigneeUserId === captainUserId ? "Ya es suyo" : t.assigneeName ? `Asignado a ${t.assigneeName}` : "Libre"}
+											</span>
+										</span>
+									</label>
+								))}
+								{flow2Territories.length === 0 && <p className="px-3 py-2 text-sm text-ink-soft">No hay territorios de este tipo.</p>}
+							</div>
+						</div>
+					)}
+
+					{!flow2 && (
 					<div className="flex flex-col gap-1.5">
 						<span className="text-sm font-medium text-ink">Territorios (ya asignados)</span>
 						{territoryList.length === 0 ? (
@@ -554,9 +660,10 @@ function SessionForm({ session, initialDate, onClose, onSaved }: { session: Sess
 						)}
 						<p className="text-xs text-ink-soft">Puedes elegir varios del mismo tipo para el mismo día.</p>
 					</div>
+					)}
 
 					{/* Punto de salida de cada territorio elegido que tenga más de uno en su mapa. */}
-					{territoryList
+					{(flow2 ? flow2Territories : territoryList)
 						.filter((t) => territoryIds.includes(t.id) && t.departures.length > 1)
 						.map((t) => (
 							<label key={t.id} className="flex flex-col gap-1.5">

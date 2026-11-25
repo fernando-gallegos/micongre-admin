@@ -112,6 +112,7 @@ export async function runRecurringPreaching(db: Database, today: string, { gener
 			note: head.note,
 			kind: head.kind,
 			recurring: true,
+			captainUserId: head.captainUserId,
 			createdByUserId: head.createdByUserId,
 		});
 		for (const part of chunked(kept, 30)) {

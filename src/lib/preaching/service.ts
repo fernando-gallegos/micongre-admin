@@ -19,6 +19,7 @@ import { notHiddenAdmin } from "@/lib/rbac/visibility";
 import { nicaraguaNow } from "@/lib/panel/upcoming";
 import { departureText, listDepartures, parseMapData, resolveDeparture, type Departure } from "@/lib/territories/geo";
 import { canChangeDepartureAt } from "./departureRules";
+import { assignTerritoriesToCaptain, listAssignableUsers, pruneRecurringPreaching, TerritoryFailure } from "@/lib/territories/service";
 
 export type PreachingError =
 	| "not_found"
@@ -29,7 +30,8 @@ export type PreachingError =
 	| "mixed_kinds"
 	| "invalid_targets"
 	| "invalid_departure"
-	| "departure_locked";
+	| "departure_locked"
+	| "captain_invalid";
 
 export class PreachingFailure extends Error {
 	constructor(public code: PreachingError) {
@@ -48,6 +50,8 @@ export interface SessionInput {
 	departures?: Record<string, string | null>;
 	/** Territorios generales: toda la congregación o grupos. Predicación pública: publicadores. */
 	targets: { congregation: boolean; groupIds: string[]; userIds: string[] };
+	/** Flujo 2 («capitán fijo por día»): el capitán de la salida; al guardar, el territorio se le asigna (ver captains.ts). */
+	captainUserId?: string | null;
 }
 
 export interface SessionView {
@@ -57,6 +61,8 @@ export interface SessionView {
 	note: string | null;
 	kind: "general" | "public_preaching";
 	recurring: boolean;
+	/** Flujo 2: el capitán de la salida (null = flujo 1). */
+	captainUserId: string | null;
 	notifiedAt: string | null;
 	/** `assigneeName`: quien tiene el territorio asignado ahora (el capitán; para el widget de predicación de la app).
 	 * `meetingPlace`: las indicaciones del territorio. `departure`: el punto de salida de ese día (el elegido o el predeterminado);
@@ -105,13 +111,9 @@ export async function listAssignableTerritories(db: Database) {
 		.orderBy(asc(territories.number));
 }
 
-/** Personas a las que se puede asignar una predicación pública (activas con acceso, sin el administrador oculto ni sacados). */
+/** Personas a las que se puede asignar una predicación pública: quienes tienen el privilegio «Asignable para predicación pública». */
 export async function listAssignablePeople(db: Database) {
-	return db
-		.select({ id: users.id, fullName: users.fullName })
-		.from(users)
-		.where(and(eq(users.accountStatus, "active"), eq(users.active, true), notHiddenAdmin))
-		.orderBy(asc(users.fullName));
+	return listAssignableUsers(db, "public_preaching");
 }
 
 export async function listSessions(db: Database): Promise<SessionView[]> {
@@ -176,6 +178,7 @@ export async function listSessions(db: Database): Promise<SessionView[]> {
 			note: s.note,
 			kind: s.kind,
 			recurring: s.recurring,
+			captainUserId: s.captainUserId,
 			notifiedAt: s.notifiedAt ? s.notifiedAt.toISOString() : null,
 			territories: territoryRows
 				.filter((t) => t.sessionId === s.id)
@@ -255,11 +258,10 @@ async function validate(db: Database, input: SessionInput): Promise<"general" | 
 		}
 	} else {
 		// Predicación pública: solo publicadores (varios).
+		// Predicación pública: solo quienes tienen el privilegio «Asignable para predicación pública».
 		if (congregation || groupIds.length > 0 || userIds.length === 0) throw new PreachingFailure("invalid_targets");
-		const found = (
-			await Promise.all(chunked([...new Set(userIds)]).map((part) => db.select({ id: users.id }).from(users).where(and(inArray(users.id, part), notHiddenAdmin))))
-		).flat();
-		if (found.length !== new Set(userIds).size) throw new PreachingFailure("invalid_targets");
+		const allowed = new Set((await listAssignablePeople(db)).map((u) => u.id));
+		if (![...new Set(userIds)].every((id) => allowed.has(id))) throw new PreachingFailure("invalid_targets");
 	}
 	return kind;
 }
@@ -307,13 +309,34 @@ async function writeChildren(db: Database, sessionId: string, input: SessionInpu
 	for (const part of chunked(targets, 20)) await db.insert(preachingSessionTargets).values(part);
 }
 
+/** Flujo 2: antes de validar, el territorio pasa al capitán (y se devuelven los que tenía). */
+async function assignToCaptain(db: Database, input: SessionInput, actorId: string) {
+	if (!input.captainUserId) return;
+	try {
+		await assignTerritoriesToCaptain(db, [...new Set(input.territoryIds)], input.captainUserId, actorId);
+	} catch (error) {
+		if (error instanceof TerritoryFailure) throw new PreachingFailure(error.code === "territory_not_found" ? "territory_not_assigned" : "captain_invalid");
+		throw error;
+	}
+}
+
 export async function createSession(db: Database, input: SessionInput, actorId: string): Promise<string> {
+	await assignToCaptain(db, input, actorId);
 	const kind = await validate(db, input);
 	const id = crypto.randomUUID();
-	await db
-		.insert(preachingSessions)
-		.values({ id, sessionDate: input.date, sessionTime: input.time, note: input.note, kind, recurring: input.recurring, createdByUserId: actorId });
+	await db.insert(preachingSessions).values({
+		id,
+		sessionDate: input.date,
+		sessionTime: input.time,
+		note: input.note,
+		kind,
+		recurring: input.recurring,
+		captainUserId: input.captainUserId ?? null,
+		createdByUserId: actorId,
+	});
 	await writeChildren(db, id, input);
+	// Lo que el capitán devolvió sale de sus otras salidas recurrentes pendientes (después de guardar esta, con su asignación nueva).
+	if (input.captainUserId) await pruneRecurringPreaching(db);
 	await publishNotices(db, id, actorId);
 	return id;
 }
@@ -321,12 +344,22 @@ export async function createSession(db: Database, input: SessionInput, actorId: 
 export async function updateSession(db: Database, id: string, input: SessionInput, actorId: string): Promise<void> {
 	const [existing] = await db.select({ id: preachingSessions.id }).from(preachingSessions).where(eq(preachingSessions.id, id)).limit(1);
 	if (!existing) throw new PreachingFailure("not_found");
+	await assignToCaptain(db, input, actorId);
 	const kind = await validate(db, input);
 	await db
 		.update(preachingSessions)
-		.set({ sessionDate: input.date, sessionTime: input.time, note: input.note, kind, recurring: input.recurring, updatedAt: new Date() })
+		.set({
+			sessionDate: input.date,
+			sessionTime: input.time,
+			note: input.note,
+			kind,
+			recurring: input.recurring,
+			captainUserId: input.captainUserId ?? null,
+			updatedAt: new Date(),
+		})
 		.where(eq(preachingSessions.id, id));
 	await writeChildren(db, id, input);
+	if (input.captainUserId) await pruneRecurringPreaching(db);
 	await publishNotices(db, id, actorId);
 }
 

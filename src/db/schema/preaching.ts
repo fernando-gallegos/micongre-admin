@@ -23,6 +23,9 @@ export const preachingSessions = sqliteTable(
 		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => users.id),
+		// Flujo 2 («capitán fijo por día»): el capitán de esta salida; al guardar, el territorio se le asigna a él (ver captains.ts).
+		// Null = flujo 1 (el territorio ya venía asignado).
+		captainUserId: text("captain_user_id").references(() => users.id, { onDelete: "set null" }),
 		// JSON con los ids de los avisos generados.
 		notificationIds: text("notification_ids"),
 		notifiedAt: integer("notified_at", { mode: "timestamp" }),
@@ -72,4 +75,21 @@ export const preachingSessionTargets = sqliteTable(
 		index("preaching_session_targets_user_idx").on(t.userId),
 		index("preaching_session_targets_group_idx").on(t.groupId),
 	],
+);
+
+/**
+ * Flujo 2 de la predicación: capitanes fijos por día de la semana (`weekday` 1 = lunes … 7 = domingo) y tipo de territorio. Puede haber
+ * varios el mismo día y tipo (cada salida es de uno). Los días sin capitán fijo siguen con el flujo 1.
+ */
+export const preachingDayCaptains = sqliteTable(
+	"preaching_day_captains",
+	{
+		weekday: integer("weekday").notNull(),
+		kind: text("kind", { enum: ["general", "public_preaching"] }).notNull(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		sortOrder: integer("sort_order").notNull().default(0),
+	},
+	(t) => [primaryKey({ columns: [t.weekday, t.kind, t.userId] })],
 );

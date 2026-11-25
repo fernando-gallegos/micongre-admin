@@ -197,6 +197,60 @@ export async function assignTerritory(db: Database, territoryId: string, assigne
 	await db.insert(territoryAssignments).values({ territoryId, assigneeUserId, assignedByUserId: byUserId });
 }
 
+/**
+ * Predicación, flujo 2: deja los territorios a cargo del capitán. Se devuelven (quedan en el historial como «devuelto») todos los que él
+ * tenía pendientes y no están en la lista, y la asignación vigente de cada territorio si era de otra persona; luego se le asignan.
+ * No avisa ni limpia las salidas recurrentes: quien llama corre `pruneRecurringPreaching` después de guardar la salida (si no, la
+ * limpieza podría borrar la misma salida que se está guardando).
+ */
+export async function assignTerritoriesToCaptain(db: Database, territoryIds: string[], captainUserId: string, byUserId: string): Promise<void> {
+	const wanted = new Set(territoryIds);
+	const kinds = await db.select({ id: territories.id, kind: territories.kind }).from(territories).where(inArray(territories.id, [...wanted]));
+	if (kinds.length !== wanted.size) throw new TerritoryFailure("territory_not_found");
+	for (const kind of new Set(kinds.map((k) => k.kind))) {
+		if (!(await listAssignableUsers(db, kind)).some((u) => u.id === captainUserId)) throw new TerritoryFailure("assignee_invalid");
+	}
+
+	const comment = "Devuelto al asignarle otro territorio (capitán del día).";
+	const returnIds: string[] = [];
+	const theirs = await db
+		.select({ id: territoryAssignments.id, territoryId: territoryAssignments.territoryId, notificationId: territoryAssignments.notificationId })
+		.from(territoryAssignments)
+		.where(and(eq(territoryAssignments.assigneeUserId, captainUserId), eq(territoryAssignments.status, "assigned")));
+	const notificationIds: (string | null)[] = [];
+	for (const a of theirs) {
+		if (!wanted.has(a.territoryId)) {
+			returnIds.push(a.id);
+			notificationIds.push(a.notificationId);
+		}
+	}
+	const keep = new Set(theirs.filter((a) => wanted.has(a.territoryId)).map((a) => a.territoryId));
+	for (const territoryId of wanted) {
+		if (keep.has(territoryId)) continue;
+		const current = await getActiveAssignment(db, territoryId);
+		if (current) {
+			returnIds.push(current.id);
+			notificationIds.push(current.notificationId);
+		}
+	}
+	if (returnIds.length) {
+		await db
+			.update(territoryAssignments)
+			.set({ status: "returned", resolvedAt: new Date(), resolutionComment: comment })
+			.where(and(inArray(territoryAssignments.id, returnIds), eq(territoryAssignments.status, "assigned")));
+		await deleteNotifications(db, notificationIds);
+	}
+	const fresh = [...wanted].filter((id) => !keep.has(id));
+	if (fresh.length) {
+		await db.insert(territoryAssignments).values(fresh.map((territoryId) => ({ territoryId, assigneeUserId: captainUserId, assignedByUserId: byUserId })));
+	}
+}
+
+/** Saca de las salidas recurrentes pendientes los territorios que cambiaron de capitán (ver `assignTerritoriesToCaptain`). */
+export async function pruneRecurringPreaching(db: Database): Promise<void> {
+	await stopRecurringPreaching(db);
+}
+
 /** Quita al encargado vigente (sin dejar registro: nunca llegó a resolverlo). */
 export async function unassignTerritory(db: Database, territoryId: string) {
 	const current = await getActiveAssignment(db, territoryId);
