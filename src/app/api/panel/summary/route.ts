@@ -111,7 +111,10 @@ export async function GET() {
 			.reverse()
 			// Solo lo más reciente: hasta 3.
 			.slice(0, 3)
-			.map(({ bucket: _b, territoryIds: _t, when: _w, time: _time, nextSession: _n, sessions: _s, nextSessionAt: _a, timeLabel: _l, ...rest }) => rest);
+			.map(({ bucket: _b, territoryIds: _t, when: _w, time: _time, nextSession: _n, sessions: _s, nextSessionAt: _a, timeLabel: _l, ...rest }) =>
+				// En el historial la predicación también va solo con su línea.
+				rest.meetingType === "preaching" ? { ...rest, detail: undefined } : rest,
+			);
 
 		let group = null;
 		if (me?.fieldServiceGroupId) {

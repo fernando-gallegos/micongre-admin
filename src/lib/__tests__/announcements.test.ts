@@ -29,3 +29,30 @@ describe("catálogo de novedades", () => {
 		}
 	});
 });
+
+describe("novedades centrales (router)", () => {
+	it("lee las publicadas del router y la imagen pasa por esta instalación; sin relay no hay", async () => {
+		const { centralAnnouncements } = await import("@/lib/announcements/central");
+		expect(await centralAnnouncements({})).toEqual([]);
+		const calls: string[] = [];
+		const original = globalThis.fetch;
+		globalThis.fetch = (async (url: string, init?: RequestInit) => {
+			calls.push(`${url} ${(init?.headers as Record<string, string>).Authorization}`);
+			return new Response(
+				JSON.stringify({
+					updatedAt: "2026-11-25T00:00:00Z",
+					announcements: [{ id: "2026-12-prueba", audience: "all", title: "Hola", image: "foto.jpg", intro: null, body: "**Hola**", items: [] }],
+				}),
+			);
+		}) as typeof fetch;
+		try {
+			const items = await centralAnnouncements({ PUSH_RELAY_URL: "https://push.example.app/__router/push", PUSH_RELAY_KEY: "c.clave" });
+			expect(items).toEqual([
+				{ id: "2026-12-prueba", audience: "all", published: true, title: "Hola", image: "/api/announcements/image/foto.jpg", intro: undefined, body: "**Hola**", items: [] },
+			]);
+			expect(calls).toEqual(["https://push.example.app/__router/catalog/announcements Bearer c.clave"]);
+		} finally {
+			globalThis.fetch = original;
+		}
+	});
+});

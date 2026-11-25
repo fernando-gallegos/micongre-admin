@@ -141,6 +141,9 @@ export function selectUpcoming(items: PanelAssignment[], w: UpcomingWindow): Pan
 	return out
 		.sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? ""))
 		.map(({ bucket: _b, territoryIds: _t, when: _w, time: _time, nextSession: _n, sessions: _s, nextSessionAt: _a, timeLabel: _l, ...rest }) => {
+			// La predicación (no la del capitán, que es un territorio) se muestra solo con su línea: «Predicación: hora territorio». El punto
+			// de salida y las indicaciones se ven al tocarla (Calendario); el capitán sí los ve en su tarjeta.
+			if (rest.meetingType === "preaching") delete rest.detail;
 			const until = rest.until ?? untilOf({ ...rest, time: _time });
 			return until ? { ...rest, until } : rest;
 		});

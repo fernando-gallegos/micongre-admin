@@ -124,3 +124,24 @@ describe("territorio pendiente en Mi Panel", () => {
 		expect(territoryVisible(nextTerritorySession(sessions, { date: "2026-11-25", minutes: 0 }), "2026-11-25")).toBe(false);
 	});
 });
+
+describe("predicación en Mis asignaciones", () => {
+	it("solo su línea (sin salida ni indicaciones); el capitán sí conserva el punto de salida en su territorio", () => {
+		const out = selectUpcoming(
+			[
+				a({ date: "2026-11-05", time: "08:45", meetingType: "preaching", label: "Predicación: 8:45 a.m. El Parque", detail: "Salida: Casa — dirección", bucket: "preaching:group", territoryIds: ["t1"] }),
+				a({
+					date: "2026-10-20",
+					meetingType: "territory",
+					label: "Territorio 4",
+					territory: { assignmentId: "a", territoryId: "t4", status: "assigned", comment: null },
+					nextSessionAt: { date: "2026-11-06", time: "09:00" },
+				}),
+				a({ date: "2026-11-06", time: "09:00", meetingType: "preaching", label: "Salida t4", detail: "Salida: Pulpería", bucket: "preaching:public", territoryIds: ["t4"], timeLabel: "9:00 a.m." }),
+			],
+			w,
+		);
+		expect(out.find((x) => x.meetingType === "preaching")).not.toHaveProperty("detail");
+		expect(out.find((x) => x.meetingType === "territory")?.detail).toBe("Salida: Pulpería");
+	});
+});
