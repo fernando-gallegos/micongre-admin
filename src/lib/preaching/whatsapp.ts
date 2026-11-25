@@ -73,5 +73,5 @@ export function buildWhatsAppMessage(kind: WhatsAppKind, sessions: WhatsAppSessi
 
 /** Enlace que abre WhatsApp con el texto listo para elegir el chat (el grupo de la congregación). */
 export function whatsappShareUrl(text: string): string {
-	return `https://wa.me/?text=${encodeURIComponent(text)}`;
+	return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
 }

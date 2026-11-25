@@ -19,7 +19,7 @@ const TITLE: Record<Kind, string> = { weekday: "Entre semana", weekend: "Fin de 
 
 /**
  * Botones «Entre semana» y «Fin de semana» del encabezado de Predicación: arman el mensaje para el grupo de WhatsApp de la
- * congregación (`GET /api/preaching/whatsapp`), lo muestran y lo abren en WhatsApp con el texto ya escrito (wa.me/?text=…), donde
+ * congregación (`GET /api/preaching/whatsapp`), lo muestran y lo abren en WhatsApp con el texto ya escrito (api.whatsapp.com/send?text=…; wa.me pierde los emojis al redirigir), donde
  * se elige el grupo. WhatsApp no deja escoger un grupo desde un enlace.
  */
 export function WhatsAppPreachingButtons() {

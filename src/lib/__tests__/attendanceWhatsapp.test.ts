@@ -7,6 +7,6 @@ describe("asistencia por WhatsApp", () => {
 			"*Asistencia · Entre semana*\n_jueves 19 de noviembre de 2026_\n\n🏛️ En el salón: 85\n💻 Por Zoom: 12\n*Total: 97*",
 		);
 		expect(attendanceMessage("Fin de semana", "domingo", 90, 0)).not.toContain("Zoom");
-		expect(whatsappShare("a b")).toBe("https://wa.me/?text=a%20b");
+		expect(whatsappShare("a b")).toBe("https://api.whatsapp.com/send?text=a%20b");
 	});
 });

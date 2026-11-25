@@ -58,6 +58,6 @@ describe("mensaje", () => {
 				"🗺️ Territorio 3",
 			].join("\n"),
 		);
-		expect(whatsappShareUrl("a b")).toBe("https://wa.me/?text=a%20b");
+		expect(whatsappShareUrl("a b")).toBe("https://api.whatsapp.com/send?text=a%20b");
 	});
 });
