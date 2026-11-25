@@ -1,5 +1,6 @@
 "use client";
 
+import { mapWithLimit } from "@/lib/http/pool";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Save, Send } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -26,9 +27,12 @@ interface PrivilegeOption {
 export function WeeklyMatrix({
 	meetingType,
 	meetingId,
+	reloadSignal = 0,
 }: {
 	meetingType: "midweek" | "weekend";
 	meetingId: string;
+	/** Cambia cuando se guarda la plantilla: hay que volver a leer las asignaciones. */
+	reloadSignal?: number;
 }) {
 	const [slots, setSlots] = useState<OperationalSlot[]>([]);
 	const [catalog, setCatalog] = useState<PrivilegeOption[]>([]);
@@ -60,6 +64,16 @@ export function WeeklyMatrix({
 		if (slotsRes.ok) {
 			loadedSlots = ((await slotsRes.json()) as { items: OperationalSlot[] }).items;
 			setSlots(loadedSlots);
+			// Lo elegido sin guardar en asignaciones que ya no existen (cambió la plantilla) se quita, avisando.
+			const ids = new Set(loadedSlots.map((s) => s.id));
+			setDrafts((d) => {
+				const gone = Object.keys(d).filter((id) => !ids.has(id));
+				if (gone.length === 0) return d;
+				setSaveError(`Cambió la plantilla: ${gone.length} ${gone.length === 1 ? "asignación elegida ya no existe" : "asignaciones elegidas ya no existen"}; vuelve a elegirlas.`);
+				return Object.fromEntries(Object.entries(d).filter(([id]) => ids.has(id)));
+			});
+		} else {
+			setSaveError("No se pudieron cargar las asignaciones de esta reunión. Recarga la página.");
 		}
 		let loadedCatalog: PrivilegeOption[] = [];
 		if (catalogRes.ok) {
@@ -85,7 +99,7 @@ export function WeeklyMatrix({
 
 	useEffect(() => {
 		load();
-	}, [load]);
+	}, [load, reloadSignal]);
 
 	async function addTask() {
 		if (!newPrivilegeId) return;
@@ -106,17 +120,40 @@ export function WeeklyMatrix({
 		setSaving(true);
 		setSaveError(null);
 		const remaining: Record<string, string | null> = {};
-		for (const [slotId, userId] of Object.entries(drafts)) {
-			if (!slots.some((s) => s.id === slotId)) continue;
-			const response = await fetch(`/api/operational/${slotId}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ assignedUserId: userId }),
-			});
-			if (!response.ok) remaining[slotId] = userId;
-		}
+		const failed: string[] = [];
+		// En paralelo (hasta 6 a la vez): mucho más rápido que una tras otra.
+		await mapWithLimit(Object.entries(drafts), 6, async ([slotId, userId]) => {
+			const slot = slots.find((s) => s.id === slotId);
+			const label = slot ? slot.position || slot.privilegeName : "una asignación";
+			if (!slot) {
+				// Ya no existe (cambió la plantilla): no se descarta en silencio, se avisa.
+				failed.push(`${label} (ya no existe; vuelve a elegirla)`);
+				return;
+			}
+			try {
+				const response = await fetch(`/api/operational/${slotId}`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ assignedUserId: userId }),
+				});
+				if (response.ok) return;
+				const body = (await response.json().catch(() => null)) as { error?: string } | null;
+				const reason =
+					response.status === 404
+						? "ya no existe; vuelve a elegirla"
+						: response.status === 403 && body?.error
+							? body.error
+							: response.status === 401
+								? "la sesión se cerró; vuelve a entrar"
+								: "error del servidor";
+				failed.push(`${label} (${reason})`);
+			} catch {
+				failed.push(`${label} (sin conexión)`);
+			}
+			remaining[slotId] = userId;
+		});
 		setDrafts(remaining);
-		if (Object.keys(remaining).length > 0) setSaveError("No se pudieron guardar algunas asignaciones.");
+		if (failed.length > 0) setSaveError(`No se guardaron: ${failed.join("; ")}. Lo demás sí quedó guardado.`);
 		setSaving(false);
 		load();
 	}

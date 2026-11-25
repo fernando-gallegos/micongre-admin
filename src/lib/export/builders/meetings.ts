@@ -12,7 +12,7 @@ import {
 	type MidweekData,
 	type WeekendData,
 } from "./meetingData";
-import { parseRange } from "./meetingDates";
+import { parseRange, weekSpan } from "./meetingDates";
 
 const FOOTER = "Mi Congre";
 
@@ -129,13 +129,13 @@ export async function buildMeetings(ctx: BuilderContext): Promise<ReportDoc> {
 		const blocks: ReportBlock[] = [];
 		if (canMidweek) {
 			blocks.push({ type: "heading", text: "Reunión de entre semana", level: 1 });
-			const list = await loadMidweek(db, range.from, range.to);
+			const list = await loadMidweek(db, weekSpan(range).from, weekSpan(range).to);
 			if (list.length === 0) blocks.push({ type: "paragraph", text: "No hay reunión programada.", muted: true });
 			for (const m of list) blocks.push(...midweekBlocks(m, times.midweek, 2));
 		}
 		if (canWeekend) {
 			blocks.push({ type: "heading", text: "Reunión de fin de semana", level: 1 });
-			const list = await loadWeekend(db, range.from, range.to);
+			const list = await loadWeekend(db, weekSpan(range).from, weekSpan(range).to);
 			if (list.length === 0) blocks.push({ type: "paragraph", text: "No hay reunión programada.", muted: true });
 			for (const m of list) blocks.push(...weekendBlocks(m, times.weekend, 2));
 		}
@@ -150,7 +150,7 @@ export async function buildMeetings(ctx: BuilderContext): Promise<ReportDoc> {
 	const range = parseRange(params);
 	if (kind === "weekend") {
 		assertCanAccessWeekendModule(session);
-		const list = await loadWeekend(db, range.from, range.to);
+		const list = await loadWeekend(db, weekSpan(range).from, weekSpan(range).to);
 		const blocks: ReportBlock[] = [];
 		if (list.length === 0) blocks.push({ type: "paragraph", text: "No hay reuniones programadas.", muted: true });
 		for (const m of list) blocks.push(...weekendBlocks(m, times.weekend, 2));
@@ -163,11 +163,11 @@ export async function buildMeetings(ctx: BuilderContext): Promise<ReportDoc> {
 	}
 
 	assertCanAccessMidweekModule(session);
-	const list = await loadMidweek(db, range.from, range.to);
+	const list = await loadMidweek(db, weekSpan(range).from, weekSpan(range).to);
 	const blocks: ReportBlock[] = [];
 	if (list.length === 0) blocks.push({ type: "paragraph", text: "No hay reuniones programadas.", muted: true });
 	list.forEach((m, i) => {
-		if (i > 0 && range.scope === "month") blocks.push({ type: "pageBreak" });
+		if (i > 0 && range.scope !== "week") blocks.push({ type: "pageBreak" });
 		blocks.push(...midweekBlocks(m, times.midweek, 2));
 	});
 	return {

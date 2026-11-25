@@ -9,7 +9,7 @@ import { SECTION_LABELS } from "@/lib/rbac/roles";
 import type { BuilderContext } from "../registry";
 import type { NativeLine, ReportBlock, ReportDoc } from "../types";
 import { loadMidweek, loadWeekend, UNASSIGNED, type MidweekData, type MidweekPart, type WeekendData } from "./meetingData";
-import { dayLabel, parseRange } from "./meetingDates";
+import { dayLabel, parseRange, weekSpan } from "./meetingDates";
 import { songLabel, songTitleMap } from "@/lib/songs/catalog";
 
 const PAGE_W = 690;
@@ -337,7 +337,7 @@ function pageBlocks(pages: string[][], natives?: NativeLine[][], heights?: numbe
 async function buildMidweekProgram({ db, session, params }: BuilderContext): Promise<ReportDoc> {
 	assertCanAccessMidweekModule(session);
 	const range = parseRange(params, "month");
-	const [meetings, info, titles] = await Promise.all([loadMidweek(db, range.from, range.to), congregationInfo(db), songTitleMap(db)]);
+	const [meetings, info, titles] = await Promise.all([loadMidweek(db, weekSpan(range).from, weekSpan(range).to), congregationInfo(db), songTitleMap(db)]);
 	const natives: NativeLine[][] = [];
 	const heights: number[] = [];
 	const pages: string[][] = pagesOf(meetings, 1).map((weeks) => {
@@ -474,7 +474,7 @@ function weekendBlock(m: WeekendData, y0: number, startMin: number | null, title
 async function buildWeekendProgram({ db, session, params }: BuilderContext): Promise<ReportDoc> {
 	assertCanAccessWeekendModule(session);
 	const range = parseRange(params, "month");
-	const [meetings, info, titles] = await Promise.all([loadWeekend(db, range.from, range.to), congregationInfo(db), songTitleMap(db)]);
+	const [meetings, info, titles] = await Promise.all([loadWeekend(db, weekSpan(range).from, weekSpan(range).to), congregationInfo(db), songTitleMap(db)]);
 	const natives: NativeLine[][] = [];
 	const heights: number[] = [];
 	const pages: string[][] = pagesOf(meetings, 1).map((list) => {
@@ -575,7 +575,7 @@ function slipSvg(s: Slip, x: number, y: number): string {
 async function buildS89({ db, session, params }: BuilderContext): Promise<ReportDoc> {
 	assertCanAccessMidweekModule(session);
 	const range = parseRange(params, "week");
-	const meetings = await loadMidweek(db, range.from, range.to);
+	const meetings = await loadMidweek(db, weekSpan(range).from, weekSpan(range).to);
 	const slips: Slip[] = [];
 	for (const m of meetings) {
 		if (m.event || (m.status !== "scheduled" && m.status !== "adjusted_co_visit")) continue;

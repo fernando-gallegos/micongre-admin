@@ -5,6 +5,7 @@ import { FileDown, Loader2 } from "lucide-react";
 import { IconButton } from "@/components/ui/Layout";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Chip, ChipGroup } from "@/components/ui/Layout";
 import { downloadBlob, downloadReport, safeFileName } from "@/lib/export/download";
 import { FORMAT_LABEL, type ExportFormat, type ReportDoc } from "@/lib/export/types";
@@ -15,7 +16,17 @@ export interface ExportVariant {
 	kind?: string;
 	/** Parámetros que se suman a `params` al pedir el reporte (p. ej. scope=week | month). */
 	params: Record<string, string>;
+	/** Rango de fechas libre: muestra «Desde» y «Hasta» y manda scope=range&from=&to= (ver `parseRange`). */
+	range?: boolean;
 }
+
+function addDaysIso(iso: string, days: number): string {
+	const d = new Date(`${iso}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() + days);
+	return d.toISOString().slice(0, 10);
+}
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const ERRORS: Record<string, string> = {
 	forbidden: "No tienes permiso para este reporte.",
@@ -46,12 +57,19 @@ export function ExportButton({
 	const [variant, setVariant] = useState(0);
 	const [busy, setBusy] = useState<ExportFormat | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const isRange = !!variants?.[variant]?.range;
+	const [from, setFrom] = useState(() => params.date ?? todayIso());
+	const [to, setTo] = useState(() => addDaysIso(params.date ?? todayIso(), 34));
 
 	async function run(format: ExportFormat) {
 		setBusy(format);
 		setError(null);
 		try {
-			const query = new URLSearchParams({ ...params, ...(variants?.[variant]?.params ?? {}) });
+			const query = new URLSearchParams({
+				...params,
+				...(variants?.[variant]?.params ?? {}),
+				...(isRange ? { scope: "range", from, to } : {}),
+			});
 			const response = await fetch(`/api/export/${variants?.[variant]?.kind ?? kind}?${query.toString()}`);
 			if (!response.ok) {
 				const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -81,9 +99,15 @@ export function ExportButton({
 							))}
 						</ChipGroup>
 					)}
+					{isRange && (
+						<div className="grid grid-cols-2 gap-3">
+							<Input label="Desde" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+							<Input label="Hasta" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+						</div>
+					)}
 					<div className="flex flex-col gap-2">
 						{formats.map((f) => (
-							<Button key={f} variant="secondary" className="justify-between" disabled={!!busy} onClick={() => run(f)}>
+							<Button key={f} variant="secondary" className="justify-between" disabled={!!busy || (isRange && (!from || !to))} onClick={() => run(f)}>
 								{FORMAT_LABEL[f]}
 								{busy === f && <Loader2 size={16} className="animate-spin" />}
 							</Button>

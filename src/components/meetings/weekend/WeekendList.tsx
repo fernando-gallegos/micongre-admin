@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { IconButton, PageHeader } from "@/components/ui/Layout";
 import { ExportButton } from "@/components/export/ExportButton";
 import { WeekendDetail } from "./WeekendDetail";
+import { MonthPlannerButton } from "@/components/planner/MonthPlanner";
 import { OutgoingTalksList } from "./OutgoingTalksList";
 import { WeekNav, useStoredWeek } from "@/components/shared/WeekNav";
 import { addDays, mondayOf, toISODate } from "@/lib/mwb/dates";
@@ -16,6 +17,8 @@ interface MeetingRow {
 
 export function WeekendList({ tabs }: { tabs: React.ReactNode }) {
 	const [weekStart, setWeekStart] = useStoredWeek("weekend");
+	// Sube al cerrar la vista mensual: la semana se vuelve a leer con lo que se guardó allí.
+	const [monthVersion, setMonthVersion] = useState(0);
 	const [rows, setRows] = useState<MeetingRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [generating, setGenerating] = useState(false);
@@ -71,6 +74,7 @@ export function WeekendList({ tabs }: { tabs: React.ReactNode }) {
 							variants={[
 								{ label: "Esta semana", params: { scope: "week" } },
 								{ label: "Todo el mes", params: { scope: "month" } },
+								{ label: "Rango de fechas", params: {}, range: true },
 								{ label: "Oradores salientes (semana)", kind: "outgoing-talks", params: { scope: "week" } },
 								{ label: "Oradores salientes (mes)", kind: "outgoing-talks", params: { scope: "month" } },
 								{ label: "Invitados (mes)", kind: "incoming-talks", params: { scope: "month" } },
@@ -78,6 +82,7 @@ export function WeekendList({ tabs }: { tabs: React.ReactNode }) {
 							label="Descargar reporte"
 							title="Reporte de fin de semana"
 						/>
+						<MonthPlannerButton module="weekend" date={weekStart} onClosed={() => setMonthVersion((v) => v + 1)} />
 						<IconButton label="Agregar las reuniones del mes" icon={Download} tone="accent" disabled={generating} onClick={generateMonth} />
 					</>
 				}
@@ -94,7 +99,7 @@ export function WeekendList({ tabs }: { tabs: React.ReactNode }) {
 				</Card>
 			)}
 
-			{!loading && rows[0] && <WeekendDetail meetingId={rows[0].id} />}
+			{!loading && rows[0] && <WeekendDetail key={`${rows[0].id}:${monthVersion}`} meetingId={rows[0].id} />}
 
 			<OutgoingTalksList weekStart={weekStart} weekEnd={weekEnd} />
 		</div>

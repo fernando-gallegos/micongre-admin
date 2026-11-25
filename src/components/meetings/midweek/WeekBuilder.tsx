@@ -1,5 +1,6 @@
 "use client";
 
+import { mapWithLimit } from "@/lib/http/pool";
 import { useCallback, useEffect, useState } from "react";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -173,28 +174,39 @@ export function WeekBuilder({ meetingId }: { meetingId: string }) {
 		const remaining: Record<string, Record<string, unknown>> = {};
 		let meetingFailed = false;
 
-		if (Object.keys(meetingDraft).length > 0) {
-			const response = await fetch(`/api/midweek/${meetingId}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(meetingDraft),
-			});
-			meetingFailed = !response.ok;
-		}
+		// La reunión y cada parte se guardan en paralelo (hasta 6 a la vez): mucho más rápido que una tras otra.
+		const meetingSave =
+			Object.keys(meetingDraft).length > 0
+				? fetch(`/api/midweek/${meetingId}`, {
+						method: "PATCH",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(meetingDraft),
+					})
+						.then((r) => !r.ok)
+						.catch(() => true)
+				: Promise.resolve(false);
 
-		for (const [assignmentId, patch] of Object.entries(assignmentDrafts)) {
-			if (!savedAssignments.some((a) => a.id === assignmentId)) continue;
-			const response = await fetch(`/api/midweek/${meetingId}/assignments/${assignmentId}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(patch),
-			});
-			if (!response.ok) {
+		const drafts = Object.entries(assignmentDrafts);
+		await mapWithLimit(drafts, 6, async ([assignmentId, patch]) => {
+			if (!savedAssignments.some((a) => a.id === assignmentId)) {
+				failed[assignmentId] = "Esta parte ya no existe; vuelve a elegirla.";
+				return;
+			}
+			try {
+				const response = await fetch(`/api/midweek/${meetingId}/assignments/${assignmentId}`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(patch),
+				});
+				if (response.ok) return;
 				const body = (await response.json().catch(() => ({}))) as { error?: string };
 				failed[assignmentId] = body.error ?? "No se pudo guardar.";
-				remaining[assignmentId] = patch;
+			} catch {
+				failed[assignmentId] = "Sin conexión: no se guardó.";
 			}
-		}
+			remaining[assignmentId] = patch;
+		});
+		meetingFailed = await meetingSave;
 
 		setSaving(false);
 		setRowError(failed);

@@ -8,6 +8,7 @@ import { WeekNav, useStoredWeek } from "@/components/shared/WeekNav";
 import { addDays, mondayOf, toISODate } from "@/lib/mwb/dates";
 import { OperationalTemplate } from "./OperationalTemplate";
 import { WeeklyMatrix } from "./WeeklyMatrix";
+import { MonthPlannerButton } from "@/components/planner/MonthPlanner";
 
 const TABS: { value: "midweek" | "weekend"; label: string }[] = [
 	{ value: "midweek", label: "Entre semana" },
@@ -33,6 +34,8 @@ export function OperationalWeek() {
 	const [rows, setRows] = useState<MeetingRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [tab, setTab] = useState<"midweek" | "weekend" | "template">("midweek");
+	// Sube cada vez que se guarda la plantilla: los programas abiertos se recargan (sin perder lo elegido sin guardar).
+	const [templateVersion, setTemplateVersion] = useState(0);
 
 	useEffect(() => {
 		async function load() {
@@ -64,21 +67,25 @@ export function OperationalWeek() {
 			<PageHeader
 				title="Acomodadores"
 				actions={
+					<>
+					<MonthPlannerButton module="operational" date={weekStart} onClosed={() => setTemplateVersion((v) => v + 1)} />
 					<ExportButton
 						kind="operational"
 						params={{ date: weekStart }}
 						variants={[
 							{ label: "Esta semana", params: { scope: "week" } },
 							{ label: "Todo el mes", params: { scope: "month" } },
+							{ label: "Rango de fechas", params: {}, range: true },
 						]}
 						label="Descargar reporte de acomodadores"
 					/>
+					</>
 				}
 			/>
 
 			<Segmented value={tab} onChange={setTab} options={[...TABS, { value: "template" as const, label: "Plantilla" }]} label="Reunión" />
 
-			{tab === "template" ? <OperationalTemplate /> : <WeekNav weekStart={weekStart} onChange={setWeekStart} />}
+			{tab === "template" ? <OperationalTemplate onChanged={() => setTemplateVersion((v) => v + 1)} /> : <WeekNav weekStart={weekStart} onChange={setWeekStart} />}
 
 			{/* Ambas matrices quedan montadas para no perder lo que se haya elegido sin guardar al cambiar de pestaña. */}
 			{!loading &&
@@ -88,7 +95,7 @@ export function OperationalWeek() {
 						<div key={t.value} hidden={tab !== t.value} className={tab !== t.value ? "hidden" : "flex flex-col gap-2"}>
 							{row && <SectionLabel>{`${t.label} · ${shortDateEs(row.meetingDate)}`}</SectionLabel>}
 							{row ? (
-								<WeeklyMatrix key={row.id} meetingType={t.value} meetingId={row.id} />
+								<WeeklyMatrix key={row.id} meetingType={t.value} meetingId={row.id} reloadSignal={templateVersion} />
 							) : (
 								<Card>
 									<p className="text-sm text-ink-soft">No hay reunión programada para esta semana.</p>

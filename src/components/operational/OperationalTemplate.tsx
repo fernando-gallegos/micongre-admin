@@ -24,7 +24,7 @@ const TITLES: Record<MeetingType, string> = { midweek: "Entre semana", weekend: 
 
 /** Pestaña «Plantilla»: qué asignaciones de tareas operativas lleva cada reunión. Al guardar se ajustan las reuniones desde esta semana
  * (y el job diario lo repite cada día): se agregan las que falten y se quitan las que sobren, solo si nadie las ocupa. */
-export function OperationalTemplate() {
+export function OperationalTemplate({ onChanged }: { onChanged?: () => void } = {}) {
 	const [data, setData] = useState<Loaded | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +47,11 @@ export function OperationalTemplate() {
 					initial={data[type]}
 					catalog={data.catalog}
 					copyFrom={type === "weekend" ? { label: "Copiar de entre semana", slots: data.midweek } : undefined}
-					onSaved={(slots) => setData((d) => (d ? { ...d, [type]: slots } : d))}
+					onSaved={(slots) => {
+						setData((d) => (d ? { ...d, [type]: slots } : d));
+						// Guardar la plantilla cambia las asignaciones de las reuniones: el programa abierto se recarga.
+						onChanged?.();
+					}}
 				/>
 			))}
 		</div>

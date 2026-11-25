@@ -9,8 +9,8 @@ const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes
 export interface DateRange {
 	from: string;
 	to: string;
-	scope: "week" | "month";
-	/** "5 al 11 de octubre de 2026" o "octubre de 2026". */
+	scope: "week" | "month" | "range";
+	/** "5 al 11 de octubre de 2026", "octubre de 2026" o "2 de diciembre de 2026 al 3 de enero de 2027". */
 	label: string;
 	/** Sufijo seguro para el nombre del archivo. */
 	slug: string;
@@ -24,6 +24,15 @@ export function parseRange(params: URLSearchParams, defaultScope: "week" | "mont
 	const rawDate = params.get("date");
 	const date = isIso(rawDate) ? rawDate : toISODate(new Date());
 	const rawScope = params.get("scope");
+	// Rango de fechas libre (del día «from» al día «to», incluidos), hasta MAX_RANGE_DAYS.
+	const rawFrom = params.get("from");
+	const rawTo = params.get("to");
+	if (rawScope === "range" && isIso(rawFrom) && isIso(rawTo)) {
+		let [from, to] = rawFrom <= rawTo ? [rawFrom, rawTo] : [rawTo, rawFrom];
+		const maxTo = toISODate(addDays(parseISODate(from), MAX_RANGE_DAYS - 1));
+		if (to > maxTo) to = maxTo;
+		return { from, to, scope: "range", label: rangeLabel(from, to), slug: `${from}_${to}` };
+	}
 	const scope = rawScope === "month" ? "month" : rawScope === "week" ? "week" : defaultScope;
 	const d = parseISODate(date);
 	if (scope === "month") {
@@ -44,10 +53,28 @@ export function parseRange(params: URLSearchParams, defaultScope: "week" | "mont
 	return { from, to, scope, label: weekLabel(from), slug: from };
 }
 
+/**
+ * Fechas para buscar programas por semana (entre semana se guarda con el lunes): con un rango libre se toman las semanas completas que toca
+ * (del lunes de «from» al domingo de la semana de «to»); semana y mes ya son semanas completas.
+ */
+export function weekSpan(range: DateRange): { from: string; to: string } {
+	if (range.scope !== "range") return { from: range.from, to: range.to };
+	return { from: toISODate(mondayOf(parseISODate(range.from))), to: toISODate(addDays(mondayOf(parseISODate(range.to)), 6)) };
+}
+
+/** Lo más largo que puede abarcar un rango de fechas (unos 6 meses). */
+export const MAX_RANGE_DAYS = 186;
+
 /** "5 al 11 de octubre de 2026", "28 de septiembre al 4 de octubre de 2026". */
 export function weekLabel(mondayISO: string): string {
-	const s = parseISODate(mondayISO);
-	const e = addDays(s, 6);
+	return rangeLabel(mondayISO, toISODate(addDays(parseISODate(mondayISO), 6)));
+}
+
+/** "2 al 20 de diciembre de 2026", "2 de diciembre de 2026 al 3 de enero de 2027", "5 de octubre de 2026" (un solo día). */
+export function rangeLabel(fromISO: string, toISO: string): string {
+	const s = parseISODate(fromISO);
+	const e = parseISODate(toISO);
+	if (fromISO === toISO) return `${s.getUTCDate()} de ${MONTHS[s.getUTCMonth()]} de ${s.getUTCFullYear()}`;
 	const sd = s.getUTCDate();
 	const ed = e.getUTCDate();
 	if (s.getUTCFullYear() !== e.getUTCFullYear()) {
