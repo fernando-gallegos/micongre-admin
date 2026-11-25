@@ -43,6 +43,9 @@ export async function middleware(request: NextRequest) {
 	const inPath = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 	const isSetupRoute = inPath("/setup") || inPath("/api/setup");
 
+	// Vistas previas de pantallas con datos de ejemplo (p. ej. /dev-preview/novedades): solo con `next dev`, nunca en producción.
+	if (process.env.NODE_ENV === "development" && inPath("/dev-preview")) return NextResponse.next();
+
 	// App nueva (sin ningún administrador): todo lleva al asistente. Los
 	// archivos estáticos (con extensión) quedan fuera para no romper su carga.
 	if (!isSetupRoute && !/\.[a-z0-9]+$/i.test(pathname) && !(await isSetupComplete())) {

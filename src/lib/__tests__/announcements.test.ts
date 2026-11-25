@@ -22,6 +22,10 @@ describe("pendingAnnouncements", () => {
 describe("catálogo de novedades", () => {
 	it("los id son únicos y cada novedad tiene título y contenido", () => {
 		expect(new Set(ANNOUNCEMENTS.map((x) => x.id)).size).toBe(ANNOUNCEMENTS.length);
-		for (const x of ANNOUNCEMENTS) expect(x.title && x.items.length > 0 && x.items.every((i) => i.title && i.text)).toBeTruthy();
+		for (const x of ANNOUNCEMENTS) {
+			expect(x.title && (x.body?.trim() || (x.items?.length ?? 0) > 0)).toBeTruthy();
+			expect((x.items ?? []).every((i) => i.title && i.text)).toBe(true);
+			if (x.image) expect(x.image).toMatch(/^\/announcements\/[\w.-]+\.(jpe?g|png|webp)$/);
+		}
 	});
 });

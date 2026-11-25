@@ -11,7 +11,7 @@ export async function GET() {
 		const session = await getSession();
 		if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 		const items = await pendingFor(getDb(), session);
-		return NextResponse.json({ items: items.map(({ id, title, intro, items }) => ({ id, title, intro: intro ?? null, items })) });
+		return NextResponse.json({ items: items.map(({ id, title, image, intro, body, items }) => ({ id, title, image: image ?? null, intro: intro ?? null, body: body ?? null, items: items ?? [] })) });
 	} catch (error) {
 		return errorResponse(error);
 	}

@@ -15,8 +15,15 @@ export interface Announcement {
 	/** Solo las publicadas se muestran; las demás esperan a que se publiquen. */
 	published: boolean;
 	title: string;
+	/**
+	 * Imagen de arriba, a todo el ancho y 200 px de alto (se recorta para llenar, sin deformarse): ruta dentro de `public/`, p. ej.
+	 * «/announcements/2026-11-planificadores.jpg». Recomendado 1200 × 600 px; lo importante dentro del centro (1000 × 460 px).
+	 */
+	image?: string;
 	intro?: string;
-	items: AnnouncementItem[];
+	/** Texto en Markdown sencillo (el de los avisos): **negrita**, *cursiva*, ## títulos, listas con «- » y [enlaces](https://…). */
+	body?: string;
+	items?: AnnouncementItem[];
 }
 
 export interface Viewer {

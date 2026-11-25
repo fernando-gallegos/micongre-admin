@@ -48,51 +48,54 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 	return nodes;
 }
 
-export function NotificationMarkdown({ message }: { message: string }) {
+/** `article`: para textos largos (novedades), con títulos más grandes y más aire; por omisión, compacto (tarjeta de aviso). */
+export function NotificationMarkdown({ message, variant = "compact" }: { message: string; variant?: "compact" | "article" }) {
+	const article = variant === "article";
 	const blocks = message.replace(/\r\n/g, "\n").split(/\n{2,}/);
 
+	function renderLines(lines: string[], bi: number): ReactNode {
+		const isUnordered = lines.every((l) => /^[-*]\s+/.test(l));
+		const isOrdered = !isUnordered && lines.every((l) => /^\d+\.\s+/.test(l));
+		if (isUnordered || isOrdered) {
+			const items = lines.map((l, li) => <li key={li}>{renderInline(l.replace(/^([-*]|\d+\.)\s+/, ""), `b${bi}-${li}`)}</li>);
+			return isOrdered ? (
+				<ol key={`l${bi}`} className="list-decimal pl-5 text-[15px] text-ink">
+					{items}
+				</ol>
+			) : (
+				<ul key={`l${bi}`} className="list-disc pl-5 text-[15px] text-ink">
+					{items}
+				</ul>
+			);
+		}
+		return (
+			<p key={`p${bi}`} className="text-[15px] leading-snug text-ink">
+				{lines.map((l, li) => (
+					<span key={li}>
+						{renderInline(l, `b${bi}-${li}`)}
+						{li < lines.length - 1 && <br />}
+					</span>
+				))}
+			</p>
+		);
+	}
+
 	return (
-		<div className="flex flex-col gap-1.5">
+		<div className={`flex flex-col ${article ? "gap-3" : "gap-1.5"}`}>
 			{blocks.map((block, bi) => {
-				const lines = block.split("\n").filter((l) => l.trim().length > 0);
-				if (lines.length === 0) return null;
-
-				const headingMatch = /^(#{1,6})\s+(.*)$/.exec(lines[0]);
-				if (headingMatch && lines.length === 1) {
-					const level = headingMatch[1].length;
-					return (
-						<p key={bi} className={`${HEADING_CLASS[level]} text-ink`}>
-							{renderInline(headingMatch[2], `b${bi}`)}
-						</p>
-					);
-				}
-
-				const isUnordered = lines.every((l) => /^[-*]\s+/.test(l));
-				const isOrdered = !isUnordered && lines.every((l) => /^\d+\.\s+/.test(l));
-				if (isUnordered || isOrdered) {
-					const items = lines.map((l, li) => (
-						<li key={li}>{renderInline(l.replace(/^([-*]|\d+\.)\s+/, ""), `b${bi}-${li}`)}</li>
-					));
-					return isOrdered ? (
-						<ol key={bi} className="list-decimal pl-5 text-[15px] text-ink">
-							{items}
-						</ol>
-					) : (
-						<ul key={bi} className="list-disc pl-5 text-[15px] text-ink">
-							{items}
-						</ul>
-					);
-				}
-
+				const all = block.split("\n").filter((l) => l.trim().length > 0);
+				if (all.length === 0) return null;
+				// Un título puede ir solo o seguido de su texto en las líneas siguientes.
+				const headingMatch = /^(#{1,6})\s+(.*)$/.exec(all[0]);
+				const lines = headingMatch ? all.slice(1) : all;
+				if (!headingMatch) return renderLines(lines, bi);
+				const level = headingMatch[1].length;
+				const headingClass = article ? (level <= 2 ? "mt-1 text-lg font-semibold" : "text-base font-semibold") : HEADING_CLASS[level];
 				return (
-					<p key={bi} className="text-[15px] leading-snug text-ink">
-						{lines.map((l, li) => (
-							<span key={li}>
-								{renderInline(l, `b${bi}-${li}`)}
-								{li < lines.length - 1 && <br />}
-							</span>
-						))}
-					</p>
+					<div key={bi} className="flex flex-col gap-1">
+						<p className={`${headingClass} text-ink`}>{renderInline(headingMatch[2], `b${bi}`)}</p>
+						{lines.length > 0 && renderLines(lines, bi)}
+					</div>
 				);
 			})}
 		</div>

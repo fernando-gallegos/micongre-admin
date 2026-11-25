@@ -2,6 +2,8 @@
 // publicadas: se escriben con `published: false` y se cambian a `true` cuando se decide anunciarlas (y se despliega).
 // `audience`: "all" = todos, "appointed" = ancianos y siervos ministeriales, "admins" = solo administradores.
 // El `id` es permanente: no se cambia ni se reutiliza (con él se recuerda quién ya la vio).
+// Opcional: `image` (en public/announcements/, se ve a todo el ancho y 200 px de alto; recomendado 1200 × 600 px con lo importante en el
+// centro) y `body` en Markdown sencillo (**negrita**, *cursiva*, ## títulos, listas «- », [enlaces](https://…)). `items` sigue sirviendo.
 import type { Announcement } from "./rules";
 
 export const ANNOUNCEMENTS: Announcement[] = [
